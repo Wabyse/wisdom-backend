@@ -1,0 +1,230 @@
+const {
+  User,
+  Employee,
+  Teacher,
+  Session,
+  Class,
+  Substitute,
+  TeacherLatness,
+  Student,
+  studentAttendance,
+  Stage,
+  Organization
+} = require("../db/models");
+
+exports.viewTeacher = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    const Users = await User.findAll({
+      attributes: ["id", "code"],
+      where: { id }, // ✅ Fix is here
+      include: [
+        {
+          model: Employee,
+          as: "employee",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name"],
+          include: [
+            {
+              model: Teacher,
+              as: "teacher",
+              attributes: ["id"],
+              include: [
+                {
+                  model: Session,
+                  as: "sessions",
+                  attributes: ["id"],
+                  include: [
+                    {
+                      model: Class,
+                      as: "class",
+                      attributes: ["id", "name"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Users,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewTeachers = async (req, res) => {
+  try {
+    const Users = await User.findAll({
+      attributes: ["id", "code"],
+      include: [
+        {
+          model: Employee,
+          as: "employee",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name"],
+          include: [
+            {
+              model: Teacher,
+              as: "teacher",
+              required: true,
+              attributes: ["id"],
+            },
+          ],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Users,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.submitSubstitutions = async (req, res) => {
+  try {
+    const substitutionsData = req.body;
+
+    if (!Array.isArray(substitutionsData) || substitutionsData.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty data array." });
+    }
+
+    const addSubstitutions = await Substitute.bulkCreate(substitutionsData, {
+      validate: true,
+      returning: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Substitutions created successfully",
+      data: addSubstitutions,
+    });
+  } catch (error) {
+    console.error("Error creating substitutions:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.submitTeacherLatness = async (req, res) => {
+  try {
+    const LatnessData = req.body;
+
+    if (!Array.isArray(LatnessData) || LatnessData.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty data array." });
+    }
+
+    const addLatness = await TeacherLatness.bulkCreate(LatnessData, {
+      validate: true,
+      returning: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Teacher latness data created successfully",
+      data: addLatness,
+    });
+  } catch (error) {
+    console.error("Error creating latness data:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewStudents = async (req, res) => {
+  try {
+    const students = await Student.findAll({
+      attributes: ["id", "first_name", "middle_name", "last_name", "user_id", "class_id", "school_id"],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      students,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.submitStudentAbsence = async (req, res) => {
+  try {
+    const AbsenceData = req.body;
+
+    if (!Array.isArray(AbsenceData) || AbsenceData.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty data array." });
+    }
+
+    const addAttendance = await studentAttendance.bulkCreate(AbsenceData, {
+      validate: true,
+      returning: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Student Absence data created successfully",
+      data: addAttendance,
+    });
+  } catch (error) {
+    console.error("Error creating latness data:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewClasses = async (req, res) => {
+  try {
+    const students = await Class.findAll({
+      attributes: ["id", "name", "stage_id", "classRoom_id"],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      students,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewStages = async (req, res) => {
+  try {
+    const students = await Stage.findAll({
+      attributes: ["id", "name"],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      students,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewSchools = async (req, res) => {
+  try {
+    const students = await Organization.findAll({
+      attributes: ["id", "name"],
+      where: {type: "school"}
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      students,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};

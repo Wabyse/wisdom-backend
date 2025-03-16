@@ -42,6 +42,7 @@ module.exports = (sequelize, DataTypes) => {
   User.associate = (models) => {
     User.belongsTo(models.UserRole, { foreignKey: 'role_id', as: 'role' });
     User.hasMany(models.CurriculumReport, { foreignKey: 'Assessor_id', as: 'reports' });
+    User.hasMany(models.SchoolDocument, { foreignKey: 'user_id', as: 'documents' });
     User.hasOne(models.Employee, { foreignKey: 'user_id', as: 'employee' });
     User.hasMany(models.IndividualReport, { foreignKey: 'Assessor_id', as: 'assessorReports' });
     User.hasMany(models.IndividualReport, { foreignKey: 'Assessee_id', as: 'assesseeReports' });
@@ -49,6 +50,7 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.studentBehavior, { foreignKey: 'offender_id', as: 'offender_behaviors' });
     User.hasMany(models.studentBehavior, { foreignKey: 'social_worker_id', as: 'social_worker_behaviors' });
     User.hasMany(models.ScheduledRole, { foreignKey: 'user_id', as: 'assignedRole' });
+    User.hasMany(models.EnvironmentReports, { foreignKey: 'user_id', as: 'envReports' });
   };
 
   return User;

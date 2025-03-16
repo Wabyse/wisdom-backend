@@ -57,6 +57,7 @@ module.exports = (sequelize, DataTypes) => {
         Question.belongsTo(models.SubField, { foreignKey: 'sub_field_id', as: 'sub_field' });
         Question.hasMany(models.CurriculumResult, { foreignKey: 'question_id', as: 'currResults' });
         Question.hasMany(models.QuestionResult, { foreignKey: 'question_id', as: 'quesResults' });
+        Question.hasMany(models.EnvironmentResults, { foreignKey: 'question_id', as: 'envResults' });
         Question.belongsTo(models.QuestionManifest, { foreignKey: 'manifest_code', as: 'questions' });
     };
 

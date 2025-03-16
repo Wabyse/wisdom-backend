@@ -1,25 +1,29 @@
 module.exports = (sequelize, DataTypes) => {
-    const Session = sequelize.define('Session', {
+    const EnvironmentResults = sequelize.define('EnvironmentResults', {
         id: {
             allowNull: false,
             autoIncrement: true,
             primaryKey: true,
             type: DataTypes.INTEGER,
         },
-        class_id: {
+        score: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+        },
+        question_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'classes',
+                model: 'questions',
                 key: 'id',
             },
             onDelete: 'RESTRICT'
         },
-        teacher_id: {
+        report_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'teachers',
+                model: 'environment_reports',
                 key: 'id',
             },
             onDelete: 'RESTRICT'
@@ -33,18 +37,15 @@ module.exports = (sequelize, DataTypes) => {
         },
     }, {
         paranoid: true,
-        tableName: 'sessions',
+        tableName: 'environment_results',
         timestamps: true,
         updatedAt: false,
     });
 
-    Session.associate = (models) => {
-        Session.hasMany(models.CurriculumUnit, { foreignKey: 'session_id', as: 'units' });
-        Session.belongsTo(models.Class, { foreignKey: 'class_id', as: 'class' });
-        Session.belongsTo(models.Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
-        Session.hasMany(models.Substitute, { foreignKey: 'session_id', as: 'substitutes' });
-        Session.hasMany(models.TeacherLatness, { foreignKey: 'session_id', as: 'latness' });
+    EnvironmentResults.associate = (models) => {
+        EnvironmentResults.belongsTo(models.Question, { foreignKey: 'question_id', as: 'questionResult' });
+        EnvironmentResults.belongsTo(models.EnvironmentReports, { foreignKey: 'report_id', as: 'report' });
     };
 
-    return Session;
+    return EnvironmentResults;
 }

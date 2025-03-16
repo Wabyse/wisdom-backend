@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User, Employee, Teacher } = require("../db/models");
+const { User, Employee, Teacher, UserRole, Organization, Student, EmployeeRole, Department } = require("../db/models");
 const { comparePassword, hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
 
@@ -15,6 +15,28 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid code or password" });
     }
 
+    const userRole = await UserRole.findOne({ where: { id: user.role_id } });
+
+    let organization = null;
+    let department = null; // Declare organization outside the if block
+
+    if (userRole.title !== "Student") {
+      const employee = await Employee.findOne({ where: { user_id: user.id } });
+      if (employee) {
+        organization = await Organization.findOne({ where: { id: employee.organization_id } });
+      }
+      const employeeRole = await EmployeeRole.findOne({ where: { id: employee.role_id } });
+      if (employeeRole.title === "Teacher" || employeeRole.title === "HOD") {
+        const teacher = await Teacher.findOne({ where: { id: employee.id } });
+        department = await Department.findOne({ where: { id: teacher.department_id } });
+      }
+    } else {
+      const student = await Student.findOne({ where: { user_id: user.id } });
+      if (student) {
+        organization = await Organization.findOne({ where: { id: student.school_id } });
+      }
+    }
+
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid code or password" });
@@ -24,14 +46,14 @@ const login = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res
-      .status(200)
-      .json({
-        message: "Login successful",
-        id: user.id,
-        code: user.code,
-        token,
-      });
+    res.status(200).json({
+      message: "Login successful",
+      id: user.id,
+      code: user.code,
+      organization_id: organization ? organization.id : null,
+      department_id: department ? department.id : null,
+      token,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }

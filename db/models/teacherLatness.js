@@ -1,25 +1,32 @@
 module.exports = (sequelize, DataTypes) => {
-    const Session = sequelize.define('Session', {
+    const TeacherLatness = sequelize.define('TeacherLatness', {
         id: {
             allowNull: false,
             autoIncrement: true,
             primaryKey: true,
             type: DataTypes.INTEGER,
         },
-        class_id: {
-            type: DataTypes.INTEGER,
+        late: {
+            type: DataTypes.DATE,
             allowNull: false,
-            references: {
-                model: 'classes',
-                key: 'id',
-            },
-            onDelete: 'RESTRICT'
+        },
+        reason: {
+            type: DataTypes.TEXT
         },
         teacher_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
                 model: 'teachers',
+                key: 'id',
+            },
+            onDelete: "RESTRICT",
+        },
+        session_id: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            references: {
+                model: 'sessions',
                 key: 'id',
             },
             onDelete: 'RESTRICT'
@@ -33,18 +40,15 @@ module.exports = (sequelize, DataTypes) => {
         },
     }, {
         paranoid: true,
-        tableName: 'sessions',
+        tableName: 'teacher_latness',
         timestamps: true,
         updatedAt: false,
     });
 
-    Session.associate = (models) => {
-        Session.hasMany(models.CurriculumUnit, { foreignKey: 'session_id', as: 'units' });
-        Session.belongsTo(models.Class, { foreignKey: 'class_id', as: 'class' });
-        Session.belongsTo(models.Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
-        Session.hasMany(models.Substitute, { foreignKey: 'session_id', as: 'substitutes' });
-        Session.hasMany(models.TeacherLatness, { foreignKey: 'session_id', as: 'latness' });
+    TeacherLatness.associate = (models) => {
+        TeacherLatness.belongsTo(models.Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
+        TeacherLatness.belongsTo(models.Session, { foreignKey: 'session_id', as: 'session' });
     };
 
-    return Session;
+    return TeacherLatness;
 }

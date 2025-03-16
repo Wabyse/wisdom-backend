@@ -32,7 +32,7 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     QuestionManifest.associate = (models) => {
-        QuestionManifest.hasMany(models.Question, { foreignKey: 'manifest_id', as: 'manifest' });
+        QuestionManifest.hasMany(models.Question, { foreignKey: 'manifest_code', as: 'manifest' });
     };
 
     return QuestionManifest;

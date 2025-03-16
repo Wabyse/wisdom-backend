@@ -60,6 +60,8 @@ module.exports = (sequelize, DataTypes) => {
         Teacher.belongsTo(models.Subject, { foreignKey: 'subject_id', as: 'subject' });
         Teacher.belongsTo(models.Department, { foreignKey: 'department_id', as: 'department' });
         Teacher.hasMany(models.TeacherSessionHistory, { foreignKey: 'teacher_id', as: 'history' });
+        Teacher.hasMany(models.TeacherLatness, { foreignKey: 'teacher_id', as: 'lateness' });
+        Teacher.hasMany(models.TeacherEvaluation, { foreignKey: 'teacher_id', as: 'evaluation' });
     };
 
     return Teacher;

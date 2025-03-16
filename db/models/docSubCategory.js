@@ -1,28 +1,23 @@
 module.exports = (sequelize, DataTypes) => {
-    const Form = sequelize.define('Form', {
+    const DocSubCategory = sequelize.define('DocSubCategory', {
         id: {
             allowNull: false,
             autoIncrement: true,
             primaryKey: true,
             type: DataTypes.INTEGER,
         },
-        en_name: {
+        name: {
             type: DataTypes.STRING,
             allowNull: false,
         },
-        ar_name: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
-        code: {
-            type: DataTypes.STRING
-        },
-        weight: {
+        category: {
             type: DataTypes.INTEGER,
             allowNull: false,
-        },
-        type: {
-            type: DataTypes.ENUM('360 Individual Assessment', 'ClassRoom Observation', '360 Curriculum Assessment', 'normal')
+            references: {
+                model: 'document_categories',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
         },
         deleted: {
             type: DataTypes.BOOLEAN,
@@ -33,14 +28,15 @@ module.exports = (sequelize, DataTypes) => {
         },
     }, {
         paranoid: true,
-        tableName: 'forms',
+        tableName: 'document_sub_categories',
         timestamps: true,
         updatedAt: false,
     });
 
-    Form.associate = (models) => {
-        Form.hasMany(models.Field, { foreignKey: 'form_id', as: 'fields' });
+    DocSubCategory.associate = (models) => {
+        DocSubCategory.belongsTo(models.DocCategory, { foreignKey: 'category', as: 'documentCategory' });
+        DocSubCategory.hasMany(models.SchoolDocument, { foreignKey: 'sub_category', as: 'documents' });
     };
 
-    return Form;
+    return DocSubCategory;
 }

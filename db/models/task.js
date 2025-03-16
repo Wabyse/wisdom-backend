@@ -14,14 +14,18 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TEXT
         },
         start_date: {
-            type: DataTypes.DATEONLY
+            type: DataTypes.DATE
         },
         end_date: {
-            type: DataTypes.DATEONLY
+            type: DataTypes.DATE
         },
         status: {
             allowNull: false,
             type: DataTypes.ENUM('0', '25', '50', '75', 'finished', 'on hold', 'in progress', 'past the due date', 'submitted', 'under review', 'not started yet'),
+        },
+        importance: {
+            allowNull: false,
+            type: DataTypes.ENUM('normal', 'important', 'urgent'),
         },
         sub_category: {
             type: DataTypes.INTEGER,
@@ -51,6 +55,9 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'RESTRICT'
         },
         file_path: {
+            type: DataTypes.TEXT
+        },
+        submit_file_path: {
             type: DataTypes.TEXT
         },
         deleted: {

@@ -13,6 +13,9 @@ const {
   Department,
   Employee,
   Teacher,
+  Organization,
+  EnvironmentReports,
+  EnvironmentResults,
 } = require("../db/models");
 require("dotenv").config();
 
@@ -74,6 +77,42 @@ const insertCurriculumForm = async (req, res) => {
         report_id: form.id,
       }));
       await CurriculumResult.bulkCreate(answers, {
+        validate: true,
+        transaction,
+      });
+      return { form, answers };
+    });
+    res
+      .status(201)
+      .json({ message: "form inserted successfully", result, questionsResult });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+const insertEnvForm = async (req, res) => {
+  try {
+    const { userId, questionsResult } = req.body;
+    if (!userId || !questionsResult) {
+      return res.status(400).json({
+        status: "fail",
+        message: "All fields are required",
+      });
+    }
+
+    const result = await User.sequelize.transaction(async (transaction) => {
+      const form = await EnvironmentReports.create(
+        {
+          user_id: userId,
+        },
+        { transaction }
+      );
+      const answers = questionsResult.map((question) => ({
+        score: question.result,
+        question_id: question.question_id,
+        report_id: form.id,
+      }));
+      await EnvironmentResults.bulkCreate(answers, {
         validate: true,
         transaction,
       });
@@ -217,6 +256,7 @@ const fetchAllUsers = async (req, res) => {
           as: "employee",
           required: true,
           attributes: [
+            ["id", "employee_id"],
             ["first_name", "employee_first_name"],
             ["middle_name", "employee_middle_name"],
             ["last_name", "employee_last_name"],
@@ -231,9 +271,7 @@ const fetchAllUsers = async (req, res) => {
                   model: Department,
                   as: "department",
                   required: true,
-                  attributes: [
-                    ["Name", "department_name"]
-                  ],
+                  attributes: [["Name", "department_name"]],
                   where: departmentId ? { id: departmentId } : {},
                 },
               ],
@@ -241,6 +279,23 @@ const fetchAllUsers = async (req, res) => {
           ],
         },
       ],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+const fetchAllOrgs = async (req, res) => {
+  try {
+    const data = await Organization.findAll({
+      attributes: ["id", "name", "type"],
     });
 
     res.status(200).json({
@@ -262,4 +317,6 @@ module.exports = {
   fetchAllCurriculums,
   fetchAllDepartments,
   fetchAllUsers,
+  fetchAllOrgs,
+  insertEnvForm
 };

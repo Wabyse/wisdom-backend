@@ -1,8 +1,15 @@
 require("dotenv").config({ path: `${process.cwd()}/.env` });
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const cors = require("cors"); //to let a front end uses the apis
 const authRoutes = require("./routes/authRoutes");
 const formRoutes = require("./routes/formRoutes");
+const filesRoutes = require("./routes/filesRoutes");
+const tasksRoutes = require("./routes/tasksRoutes");
+const usersRoutes = require("./routes/usersRoutes");
+const teachersRoutes = require("./routes/teachersRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 const { sequelize } = require("./db/models");
 
@@ -19,7 +26,11 @@ app.use(express.urlencoded({ extended: true })); //parses URL-encoded data from 
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/forms", formRoutes);
-app.use("/api/v1/users", formRoutes);
+// app.use("/api/v1/users", formRoutes);
+app.use("/api/v1/files", filesRoutes);
+app.use("/api/v1/tasks", tasksRoutes);
+app.use("/api/v1/users", usersRoutes);
+app.use("/api/v1/teachers", teachersRoutes);
 
 app.use("*", (req, res) => {
   res.status(404).json({
@@ -34,7 +45,7 @@ const syncDatabase = async () => {
   try {
     await sequelize.authenticate(); //checking the connection
     console.log("Database connected successfully.");
-    await sequelize.sync({ alter: true }); //syncronize the database with the model and alter any required alteration
+    await sequelize.sync({ alter: false }); //syncronize the database with the model and alter any required alteration (true for dev, false for production)
     console.log("Database synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database:", error);
