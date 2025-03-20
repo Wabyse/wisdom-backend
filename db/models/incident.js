@@ -9,6 +9,12 @@ module.exports = (sequelize, DataTypes) => {
         comment: {
             type: DataTypes.TEXT
         },
+        location: {
+            type: DataTypes.TEXT
+        },
+        file_path: {
+            type: DataTypes.TEXT
+        },
         school_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -26,6 +32,9 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'id',
             },
             onDelete: 'RESTRICT'
+        },
+        incident_date: {
+            type: DataTypes.DATE,
         },
         deleted: {
             type: DataTypes.BOOLEAN,

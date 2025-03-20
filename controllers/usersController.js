@@ -9,7 +9,13 @@ const {
   Student,
   studentAttendance,
   Stage,
-  Organization
+  Organization,
+  Incident,
+  IncidentCategories,
+  IncidentSubCategory,
+  studentBehaviorType,
+  studentBehaviorCategory,
+  studentBehavior
 } = require("../db/models");
 
 exports.viewTeacher = async (req, res) => {
@@ -143,7 +149,15 @@ exports.submitTeacherLatness = async (req, res) => {
 exports.viewStudents = async (req, res) => {
   try {
     const students = await Student.findAll({
-      attributes: ["id", "first_name", "middle_name", "last_name", "user_id", "class_id", "school_id"],
+      attributes: [
+        "id",
+        "first_name",
+        "middle_name",
+        "last_name",
+        "user_id",
+        "class_id",
+        "school_id",
+      ],
     });
 
     res.status(200).json({
@@ -216,13 +230,124 @@ exports.viewSchools = async (req, res) => {
   try {
     const students = await Organization.findAll({
       attributes: ["id", "name"],
-      where: {type: "school"}
+      where: { type: "school" },
     });
 
     res.status(200).json({
       status: "success",
       message: "data got fetched successfully",
       students,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.submitIncident = async (req, res) => {
+  try {
+    const { comment, location, school_id, sub_category, incident_date } =
+      req.body;
+
+    // Check for missing fields
+    if (!school_id || !incident_date || !sub_category) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Handle file upload
+    let file_path = null;
+    console.log(req.body);
+    if (req.file) {
+      file_path = path.join("uploads", req.file.filename);
+    }
+
+    // Create task
+    const addIncident = await Incident.create({
+      comment,
+      location,
+      file_path, // Will be null if no file is uploaded
+      school_id,
+      sub_category,
+      incident_date,
+    });
+
+    res.status(201).json({
+      message: "Incident assigned successfully",
+      incident: addIncident,
+    });
+  } catch (error) {
+    console.error("Sequelize Validation Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.viewIncidentsCategories = async (req, res) => {
+  try {
+    const categories = await IncidentCategories.findAll({
+      attributes: ["id", "name"],
+      include: [
+        {
+          model: IncidentSubCategory,
+          as: "incidentSubCategories",
+          required: true,
+          attributes: ["id", "name"],
+        },
+      ],
+    });
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      categories,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.submitBehavior = async (req, res) => {
+  try {
+    const { comment, offender_id, social_worker_id, type, behavior_date } =
+      req.body;
+
+    // Check for missing fields
+    if (!offender_id || !social_worker_id || !type || !behavior_date) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const addBehavior = await studentBehavior.create({
+      comment,
+      offender_id,
+      social_worker_id,
+      type,
+      behavior_date,
+    });
+
+    res.status(201).json({
+      message: "behavior assigned successfully",
+      incident: addBehavior,
+    });
+  } catch (error) {
+    console.error("Sequelize Validation Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.viewBehaviorCategories = async (req, res) => {
+  try {
+    const categories = await studentBehaviorCategory.findAll({
+      attributes: ["id", "name"],
+      include: [
+        {
+          model: studentBehaviorType,
+          as: "behaviorType",
+          required: true,
+          attributes: ["id", "name"],
+        },
+      ],
+    });
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      categories,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

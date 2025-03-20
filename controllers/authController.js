@@ -1,5 +1,15 @@
+const validator = require("validator");
 const jwt = require("jsonwebtoken");
-const { User, Employee, Teacher, UserRole, Organization, Student, EmployeeRole, Department } = require("../db/models");
+const {
+  User,
+  Employee,
+  Teacher,
+  UserRole,
+  Organization,
+  Student,
+  EmployeeRole,
+  Department,
+} = require("../db/models");
 const { comparePassword, hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
 
@@ -23,17 +33,27 @@ const login = async (req, res) => {
     if (userRole.title !== "Student") {
       const employee = await Employee.findOne({ where: { user_id: user.id } });
       if (employee) {
-        organization = await Organization.findOne({ where: { id: employee.organization_id } });
+        organization = await Organization.findOne({
+          where: { id: employee.organization_id },
+        });
       }
-      const employeeRole = await EmployeeRole.findOne({ where: { id: employee.role_id } });
+      const employeeRole = await EmployeeRole.findOne({
+        where: { id: employee.role_id },
+      });
       if (employeeRole.title === "Teacher" || employeeRole.title === "HOD") {
-        const teacher = await Teacher.findOne({ where: { id: employee.id } });
-        department = await Department.findOne({ where: { id: teacher.department_id } });
+        const teacher = await Teacher.findOne({
+          where: { employee_id: employee.id },
+        });
+        department = await Department.findOne({
+          where: { id: teacher.department_id },
+        });
       }
     } else {
       const student = await Student.findOne({ where: { user_id: user.id } });
       if (student) {
-        organization = await Organization.findOne({ where: { id: student.school_id } });
+        organization = await Organization.findOne({
+          where: { id: student.school_id },
+        });
       }
     }
 
@@ -73,19 +93,34 @@ const signup = async (req, res) => {
       planned_sessions,
       subject_id,
       department_id,
+      class_id,
+      specialization_id,
     } = req.body;
 
+    // Normalize and validate email
+    const normalizedEmail = email?.toLowerCase().trim();
     if (
       !first_name ||
-      !middle_name ||
       !last_name ||
-      !email ||
+      !normalizedEmail ||
       !user_role_id ||
       !organization_id ||
-      !emp_role_id ||
       !password
     ) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (!validator.isEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const Role = await UserRole.findOne({
+      attributes: ["title"],
+      where: { id: user_role_id },
+    });
+
+    if (!Role) {
+      return res.status(400).json({ message: "Invalid user role ID" });
     }
 
     const hashedPassword = await hashPassword(password);
@@ -109,53 +144,84 @@ const signup = async (req, res) => {
         { transaction }
       );
 
-      const employee = await Employee.create(
-        {
-          first_name,
-          middle_name,
-          last_name,
-          email,
-          organization_id,
-          role_id: emp_role_id,
-          user_id: user.id,
-        },
-        { transaction }
-      );
-
-      let teacher = null;
-      if (emp_role_id === 1 || emp_role_id === 2) {
-        if (!planned_sessions || !subject_id || !department_id) {
-          return res.status(400).json({ message: "All fields are required" });
+      if (Role.title === "Student") {
+        if (!class_id || !specialization_id) {
+          throw new Error("Missing class or specialization");
         }
-        teacher = await Teacher.create(
+
+        const student = await Student.create(
           {
-            planned_sessions,
-            employee_id: employee.id,
-            subject_id,
-            department_id,
+            first_name,
+            middle_name,
+            last_name,
+            email: normalizedEmail,
+            user_id: user.id,
+            class_id,
+            specialization_id,
+            school_id: organization_id,
           },
           { transaction }
         );
-      }
 
-      return { user, employee, teacher: teacher || null };
+        return { user, student };
+      } else {
+        if (!emp_role_id) {
+          throw new Error("Missing employee role ID");
+        }
+
+        const employee = await Employee.create(
+          {
+            first_name,
+            middle_name,
+            last_name,
+            email: normalizedEmail,
+            organization_id,
+            role_id: emp_role_id,
+            user_id: user.id,
+          },
+          { transaction }
+        );
+
+        let teacher = null;
+        if (
+          Role.title === "Teacher" ||
+          Role.title === "Head of Department (HOD)"
+        ) {
+          if (!planned_sessions || !subject_id || !department_id) {
+            throw new Error("Missing teacher details");
+          }
+          teacher = await Teacher.create(
+            {
+              planned_sessions,
+              employee_id: employee.id,
+              subject_id,
+              department_id,
+            },
+            { transaction }
+          );
+        }
+
+        return { user, employee, teacher: teacher || null };
+      }
     });
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined");
+    }
 
     const token = jwt.sign({ id: result.user.id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    res
-      .status(201)
-      .json({
-        message: "User created successfully",
-        code: result.user.code,
-        token,
-        result,
-      });
+    res.status(201).json({
+      message: "User created successfully",
+      code: result.user.code,
+      token,
+      result,
+    });
   } catch (error) {
-    console.error("Sequelize Validation Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Signup Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
   }
 };
 
