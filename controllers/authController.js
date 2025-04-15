@@ -29,6 +29,7 @@ const login = async (req, res) => {
 
     let organization = null;
     let department = null; // Declare organization outside the if block
+    let employeeRole = null;
 
     if (userRole.title !== "Student") {
       const employee = await Employee.findOne({ where: { user_id: user.id } });
@@ -37,10 +38,10 @@ const login = async (req, res) => {
           where: { id: employee.organization_id },
         });
       }
-      const employeeRole = await EmployeeRole.findOne({
+      employeeRole = await EmployeeRole.findOne({
         where: { id: employee.role_id },
       });
-      if (employeeRole.title === "Teacher" || employeeRole.title === "HOD") {
+      if (employeeRole && (employeeRole.title === "Teacher" || employeeRole.title === "HOD")) {
         const teacher = await Teacher.findOne({
           where: { employee_id: employee.id },
         });
@@ -72,6 +73,8 @@ const login = async (req, res) => {
       code: user.code,
       organization_id: organization ? organization.id : null,
       department_id: department ? department.id : null,
+      user_role: userRole.title,
+      employee_role: employeeRole ? employeeRole.title : null,
       token,
     });
   } catch (error) {

@@ -17,6 +17,7 @@ const {
   studentBehaviorCategory,
   studentBehavior
 } = require("../db/models");
+const path = require("path");
 
 exports.viewTeacher = async (req, res) => {
   try {
@@ -30,7 +31,7 @@ exports.viewTeacher = async (req, res) => {
           model: Employee,
           as: "employee",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name"],
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
           include: [
             {
               model: Teacher,
@@ -75,7 +76,7 @@ exports.viewTeachers = async (req, res) => {
           model: Employee,
           as: "employee",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name"],
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
           include: [
             {
               model: Teacher,

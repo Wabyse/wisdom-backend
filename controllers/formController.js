@@ -177,6 +177,7 @@ const fetchForm = async (req, res) => {
                   attributes: [
                     ["weight", "form_weight"],
                     ["type", "form_type"],
+                    ["code", "form_code"]
                   ],
                   where: { id: formId },
                 },
@@ -260,6 +261,7 @@ const fetchAllUsers = async (req, res) => {
             ["first_name", "employee_first_name"],
             ["middle_name", "employee_middle_name"],
             ["last_name", "employee_last_name"],
+            "organization_id",
           ],
           include: [
             {
