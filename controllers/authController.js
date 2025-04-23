@@ -67,7 +67,6 @@ const login = async (req, res) => {
       expiresIn: "1h",
     });
 
-    // this is user_role edit
     res.status(200).json({
       message: "Login successful",
       id: user.id,
