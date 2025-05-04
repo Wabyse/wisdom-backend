@@ -58,7 +58,6 @@ exports.assignTask = async (req, res) => {
 
     // Handle file upload
     let file_path = null;
-    console.log(req.body);
     if (req.file) {
       file_path = path.join("uploads", req.file.filename);
     }
@@ -120,13 +119,13 @@ exports.viewTasks = async (req, res) => {
           model: Employee,
           as: "assigner",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name"],
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
         },
         {
           model: Employee,
           as: "assignee",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name"],
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
         },
       ],
     });
@@ -146,8 +145,6 @@ exports.updateStatus = async (req, res) => {
     const { status } = req.body;
 
     let file_path = null;
-    console.log(req.body);
-    console.log(req.file);
     if (req.file) {
       file_path = path.join("uploads", req.file.filename);
     }

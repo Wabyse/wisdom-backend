@@ -12,15 +12,15 @@ router.post("/curriculumReports", insertCurriculumForm);
 router.post("/environmentResports", insertEnvForm);
 // router.get("/", authenticateToken, fetchForm);
 router.post("/", fetchForm);
-// router.get("/AllForms", authenticateToken, fetchAllForms);
-router.get("/AllForms", fetchAllForms);
+router.get("/AllForms", authenticateToken, fetchAllForms);
+// router.get("/AllForms", fetchAllForms);
 // router.get("/AllCurriculums", authenticateToken, fetchAllCurriculums);
 router.get("/AllCurriculums", fetchAllCurriculums);
-// router.get("/AllDepartments", authenticateToken, fetchAllDepartments);
-router.get("/AllDepartments", fetchAllDepartments);
-// router.get("/AllUsers", authenticateToken, fetchAllUsers);
-router.get("/AllUsers", fetchAllUsers);
-router.get("/AllOrgs", fetchAllOrgs);
-
+router.get("/AllDepartments", authenticateToken, fetchAllDepartments);
+// router.get("/AllDepartments", fetchAllDepartments);
+router.get("/AllUsers", authenticateToken, fetchAllUsers);
+// router.get("/AllUsers", fetchAllUsers);
+router.get("/AllOrgs", authenticateToken, fetchAllOrgs);
+// router.get("/AllOrgs", fetchAllOrgs);
 
 module.exports = router;

@@ -30,9 +30,10 @@ const login = async (req, res) => {
     let organization = null;
     let department = null; // Declare organization outside the if block
     let employeeRole = null;
+    let employee = null;
 
     if (userRole.title !== "Student") {
-      const employee = await Employee.findOne({ where: { user_id: user.id } });
+      employee = await Employee.findOne({ where: { user_id: user.id } });
       if (employee) {
         organization = await Organization.findOne({
           where: { id: employee.organization_id },
@@ -74,6 +75,7 @@ const login = async (req, res) => {
       organization_id: organization ? organization.id : null,
       department_id: department ? department.id : null,
       user_role: userRole.title,
+      employee_id: employee? employee.id : null,
       employee_role: employeeRole ? employeeRole.title : null,
       token,
     });

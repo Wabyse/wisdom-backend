@@ -256,7 +256,6 @@ exports.submitIncident = async (req, res) => {
 
     // Handle file upload
     let file_path = null;
-    console.log(req.body);
     if (req.file) {
       file_path = path.join("uploads", req.file.filename);
     }

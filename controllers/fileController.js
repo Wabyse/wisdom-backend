@@ -160,7 +160,6 @@ exports.viewFiles = async (req, res) => {
 // Open File
 exports.openFile = (req, res) => {
   const filename = req.params.filename;
-  console.log(filename);
   const filePath = path.join(__dirname, "..", "uploads", filename);
 
   if (!fs.existsSync(filePath)) {
