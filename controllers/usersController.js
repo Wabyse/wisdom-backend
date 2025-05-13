@@ -229,7 +229,7 @@ exports.viewStages = async (req, res) => {
 
 exports.viewSchools = async (req, res) => {
   try {
-    const students = await Organization.findAll({
+    const schools = await Organization.findAll({
       attributes: ["id", "name"],
       where: { type: "school" },
     });
@@ -237,7 +237,7 @@ exports.viewSchools = async (req, res) => {
     res.status(200).json({
       status: "success",
       message: "data got fetched successfully",
-      students,
+      schools,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
