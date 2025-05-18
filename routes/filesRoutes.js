@@ -5,7 +5,7 @@ const fileController = require("../controllers/fileController");
 const { authenticateToken } = require("../middleware/authMiddleware");
 
 router.post("/upload", upload.single("file"), fileController.uploadFile);
-router.get("/download/:filename", fileController.downloadFile);
+router.get("/download/*", fileController.downloadFile);
 router.get("/view", authenticateToken, fileController.viewFiles);
 // router.get("/view", fileController.viewFiles);
 router.get("/open/:filename", fileController.openFile);

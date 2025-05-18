@@ -26,7 +26,7 @@ exports.uploadFile = async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const filePath = path.join("uploads", req.file.filename);
+  const filePath = `uploads/${req.file.filename}`; // Always stores with forward slashes
 
   try {
     const file = await SchoolDocument.create({
@@ -50,10 +50,14 @@ exports.uploadFile = async (req, res) => {
 
 // Download File
 exports.downloadFile = (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, "../uploads", filename);
+  const filename = decodeURIComponent(req.params[0]);
+
+  // Convert stored "uploads/filename" into an actual OS-safe path
+  const safePath = filename.replace(/[/\\]/g, path.sep); // normalize slashes
+  const filePath = path.join(__dirname, "..", safePath); // goes into uploads/...
 
   if (!fs.existsSync(filePath)) {
+    console.error("File not found:", filePath);
     return res.status(404).json({ error: "File not found" });
   }
 
@@ -120,7 +124,7 @@ exports.viewFiles = async (req, res) => {
                       as: "department",
                       required: false,
                       attributes: ["id", "Name"],
-                    },                  {
+                    }, {
                       model: Subject,
                       as: "subject",
                       required: false,
