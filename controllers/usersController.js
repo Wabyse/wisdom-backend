@@ -15,7 +15,8 @@ const {
   IncidentSubCategory,
   studentBehaviorType,
   studentBehaviorCategory,
-  studentBehavior
+  studentBehavior,
+  EmployeeCheckInOut
 } = require("../db/models");
 const path = require("path");
 
@@ -353,3 +354,28 @@ exports.viewBehaviorCategories = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+exports.checkInOut = async (req, res) => {
+  try {
+    const { latitude, longitude, user_id } = req.body;
+
+    if (!latitude || !longitude || !user_id) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const checkInOut = await EmployeeCheckInOut.create({
+      latitude,
+      longitude,
+      user_id
+    });
+    console.log(checkInOut)
+
+    res.status(201).json({
+      message: "checked In / Out successfully",
+      incident: checkInOut,
+    });
+  } catch (error) {
+    console.error("Sequelize Validation Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+}

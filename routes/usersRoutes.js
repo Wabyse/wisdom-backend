@@ -16,5 +16,6 @@ router.post("/schools/incidents", upload.single("file"), usersController.submitI
 router.get("/schools/incidents/categories", usersController.viewIncidentsCategories);
 router.post("/students/behavior", usersController.submitBehavior);
 router.get("/students/behavior/categories", usersController.viewBehaviorCategories);
+router.post("/checkinout", usersController.checkInOut);
 
 module.exports = router;
