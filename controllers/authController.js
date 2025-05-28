@@ -9,6 +9,7 @@ const {
   Student,
   EmployeeRole,
   Department,
+  AdminsUsers
 } = require("../db/models");
 const { comparePassword, hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
@@ -75,7 +76,7 @@ const login = async (req, res) => {
       organization_id: organization ? organization.id : null,
       department_id: department ? department.id : null,
       user_role: userRole.title,
-      employee_id: employee? employee.id : null,
+      employee_id: employee ? employee.id : null,
       employee_role: employeeRole ? employeeRole.title : null,
       token,
     });
@@ -230,4 +231,100 @@ const signup = async (req, res) => {
   }
 };
 
-module.exports = { signup, login };
+const adminSignup = async (req, res) => {
+  try {
+    const {
+      username,
+      password,
+      user_id,
+      role
+    } = req.body;
+
+    if (
+      !username ||
+      !user_id ||
+      !role ||
+      !password
+    ) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const userCheck = await User.findOne({
+      where: { id: user_id },
+    });
+
+    if (!userCheck) {
+      return res.status(400).json({ message: "Invalid User Id" });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const existingAdmin = await AdminsUsers.findOne({ where: { username } });
+    if (existingAdmin) {
+      return res.status(409).json({ message: "Username already exists" });
+    }
+
+    const adminUser = await AdminsUsers.create(
+      {
+        username,
+        password: hashedPassword,
+        user_id,
+        role
+      }
+    );
+
+    if (!process.env.JWT_SECRET_POINTS) {
+      throw new Error("JWT_SECRET is not defined");
+    }
+
+    const token = jwt.sign({ id: adminUser.id }, process.env.JWT_SECRET_POINTS, {
+      expiresIn: "1h",
+    });
+
+    res.status(201).json({
+      message: "Admin created successfully",
+      id: adminUser.id,
+      username: adminUser.username,
+      role: adminUser.role,
+      token,
+    });
+  } catch (error) {
+    console.error("Signup Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
+const adminLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const Admin = await AdminsUsers.findOne({ where: { username } });
+    if (!Admin) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    const isMatch = await comparePassword(password, Admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    const token = jwt.sign({ id: Admin.id }, process.env.JWT_SECRET_POINTS, {
+      expiresIn: "1h",
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      id: Admin.id,
+      username: Admin.username,
+      user_role: Admin.role,
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+module.exports = { signup, login, adminSignup, adminLogin };

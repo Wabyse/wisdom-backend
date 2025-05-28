@@ -20,6 +20,82 @@ const {
 } = require("../db/models");
 const path = require("path");
 
+exports.viewSchoolEmployees = async (req, res) => {
+  try {
+    const Users = await User.findAll({
+      attributes: ["id", "code"],
+      include: [
+        {
+          model: Employee,
+          as: "employee",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+          where: {
+            organization_id: [1, 2],
+          },
+          include: [
+            {
+              model: Teacher,
+              as: "teacher",
+              required: false, // allow null = LEFT OUTER JOIN
+              attributes: ["id"],
+            },
+          ],
+        },
+      ],
+      where: {
+        '$employee.teacher.id$': null, // only users where employee has no teacher
+      },
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Users,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewVtcEmployees = async (req, res) => {
+  try {
+    const Users = await User.findAll({
+      attributes: ["id", "code"],
+      include: [
+        {
+          model: Employee,
+          as: "employee",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+          where: {
+            organization_id: [4, 5, 7, 8, 9],
+          },
+          include: [
+            {
+              model: Teacher,
+              as: "teacher",
+              required: false, // allow null = LEFT OUTER JOIN
+              attributes: ["id"],
+            },
+          ],
+        },
+      ],
+      where: {
+        '$employee.teacher.id$': null, // only users where employee has no teacher
+      },
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Users,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
 exports.viewTeacher = async (req, res) => {
   try {
     const { id } = req.body;
@@ -368,7 +444,6 @@ exports.checkInOut = async (req, res) => {
       longitude,
       user_id
     });
-    console.log(checkInOut)
 
     res.status(201).json({
       message: "checked In / Out successfully",
@@ -379,3 +454,27 @@ exports.checkInOut = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 }
+
+exports.viewCheckInOut = async (req, res) => {
+  try {
+    const { user_id } = req.query;
+
+    if (!user_id) {
+      return res.status(400).json({ message: "user_id is required" });
+    }
+
+    const checkInOuts = await EmployeeCheckInOut.findAll({
+      attributes: ["id", "latitude", "longitude", "createdAt"],
+      where: { user_id },
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json({
+      message: "Checked In / Out fetched successfully",
+      checkInOuts,
+    });
+  } catch (error) {
+    console.error("Sequelize Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

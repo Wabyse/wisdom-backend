@@ -52,6 +52,8 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.ScheduledRole, { foreignKey: 'user_id', as: 'assignedRole' });
     User.hasMany(models.EnvironmentReports, { foreignKey: 'user_id', as: 'envReports' });
     User.hasMany(models.EmployeeCheckInOut, { foreignKey: 'user_id', as: 'empCheckInOut' });
+    User.hasOne(models.UsersPoints, { foreignKey: 'user_id', as: 'points' });
+    User.hasOne(models.AdminsUsers, { foreignKey: 'user_id', as: 'admin' });
   };
 
   return User;

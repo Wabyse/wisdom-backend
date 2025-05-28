@@ -3,6 +3,8 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const usersController = require("../controllers/usersController");
 
+router.get("/school/employees", usersController.viewSchoolEmployees);
+router.get("/vtc/employees", usersController.viewVtcEmployees);
 router.post("/teacher", usersController.viewTeacher);
 router.post("/teacher/substitution", usersController.submitSubstitutions);
 router.post("/teacher/lateness", usersController.submitTeacherLatness);
@@ -17,5 +19,6 @@ router.get("/schools/incidents/categories", usersController.viewIncidentsCategor
 router.post("/students/behavior", usersController.submitBehavior);
 router.get("/students/behavior/categories", usersController.viewBehaviorCategories);
 router.post("/checkinout", usersController.checkInOut);
+router.get("/checkinout/view", usersController.viewCheckInOut);
 
 module.exports = router;
