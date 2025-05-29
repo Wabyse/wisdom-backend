@@ -40,6 +40,7 @@ module.exports = (sequelize, DataTypes) => {
     Organization.hasOne(models.School, { foreignKey: 'organizationId', as: 'school' });
     Organization.hasMany(models.Student, { foreignKey: 'school_id', as: 'students' });
     Organization.hasMany(models.SchoolDocument, { foreignKey: 'organization_id', as: 'documents' });
+    Organization.hasMany(models.EnvironmentReports, { foreignKey: 'organization_id', as: 'organization' });
   };
 
   return Organization;

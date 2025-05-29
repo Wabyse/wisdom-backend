@@ -92,8 +92,8 @@ const insertCurriculumForm = async (req, res) => {
 
 const insertEnvForm = async (req, res) => {
   try {
-    const { userId, questionsResult } = req.body;
-    if (!userId || !questionsResult) {
+    const { userId, organization_id, questionsResult } = req.body;
+    if (!userId || !questionsResult || !organization_id) {
       return res.status(400).json({
         status: "fail",
         message: "All fields are required",
@@ -104,6 +104,7 @@ const insertEnvForm = async (req, res) => {
       const form = await EnvironmentReports.create(
         {
           user_id: userId,
+          organization_id
         },
         { transaction }
       );

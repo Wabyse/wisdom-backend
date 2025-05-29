@@ -15,6 +15,15 @@ module.exports = (sequelize, DataTypes) => {
             },
             onDelete: 'RESTRICT'
         },
+        organization_id: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            references: {
+                model: 'organizations',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
         deleted: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
@@ -28,11 +37,12 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true,
         updatedAt: false,
     });
-    
+
     EnvironmentReports.associate = (models) => {
         EnvironmentReports.belongsTo(models.User, { foreignKey: 'user_id', as: 'employee' });
         EnvironmentReports.hasMany(models.EnvironmentResults, { foreignKey: 'report_id', as: 'results' });
+        EnvironmentReports.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
     };
-    
+
     return EnvironmentReports;
 }
