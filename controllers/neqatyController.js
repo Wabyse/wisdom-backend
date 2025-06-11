@@ -164,3 +164,89 @@ exports.viewPointsPermissions = async (req, res) => {
         res.status(500).json({ message: "Server error", error });
     }
 };
+
+exports.PointRequestStatus = async (req, res) => {
+    try {
+        const { adminId, id, status } = req.body;
+
+        if (!id || !status || !adminId) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
+        // const result = await PointsHistory.sequelize.transaction(async (transaction) => {
+        //     const pointRequest = await PointsHistory.findOne({
+        //         where: { id },
+        //         transaction,
+        //         lock: transaction.LOCK.UPDATE,
+        //     });
+
+        //     if (!pointRequest) {
+        //         throw new Error("There is no point request with this id");
+        //     }
+
+        //     if (status === 'denied') {
+        //         pointRequest.status = 'denied';
+        //         await pointRequest.save({ transaction });
+        //     } else if (status === 'accepted') {
+        //         const adminRole = await AdminsUsers.findOne({
+        //             where: { id: pointRequest.admin_id },
+        //             transaction,
+        //             lock: transaction.LOCK.UPDATE,
+        //         });
+
+        //         if (!adminRole) {
+        //             throw new Error("Admin user not found");
+        //         }
+
+        //         if (adminRole.role === "super_admin") {
+        //             pointRequest.status = 'accepted';
+        //             await pointRequest.save({ transaction });
+
+        //             const pointRequestToCeo = await PointsHistory.create({
+        //                 admin_id: adminId,
+        //                 user_id: pointRequest.user_id,
+        //                 point_id: pointRequest.point_id,
+        //                 status: "pending",
+        //             }, { transaction });
+        //         } else if (adminRole.role === "ceo") {
+        //             pointRequest.status = 'accepted';
+        //             await pointRequest.save({ transaction });
+
+        //             const userPoints = await UsersPoints.findOne({
+        //                 where: { id: pointRequest.user_id },
+        //                 transaction,
+        //                 lock: transaction.LOCK.UPDATE,
+        //             });
+
+        //             if (!userPoints) {
+        //                 throw new Error("This user is not part of points system");
+        //             }
+
+        //             const pointDetails = await RewardsAndPunishments.findOne({
+        //                 where: { id: pointRequest.point_id },
+        //                 transaction,
+        //             });
+
+        //             if (!pointDetails) {
+        //                 throw new Error("Point details not found");
+        //             }
+
+        //             userPoints.points += pointDetails.points;
+        //             await userPoints.save({ transaction });
+
+        //         } else {
+        //             throw new Error("Unauthorized admin role");
+        //         }
+        //     }
+        // });
+
+        // res.status(200).json({
+        //     status: "success",
+        //     message: `Points ${result.status === "accepted" ? "updated" : "pending approval"} and history recorded successfully.`,
+        //     result,
+        // });
+    } catch (error) {
+        console.error("Update Points Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

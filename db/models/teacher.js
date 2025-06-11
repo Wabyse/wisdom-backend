@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
         actual_sessions: {
             type: DataTypes.INTEGER,
         },
+        type: {
+            type: DataTypes.ENUM('government', 'private'),
+            allowNull: false,
+            defaultValue: 'government',
+        },
         employee_id: {
             type: DataTypes.INTEGER,
             allowNull: false,

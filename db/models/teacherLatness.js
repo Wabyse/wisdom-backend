@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
         },
         late: {
-            type: DataTypes.DATE,
+            type: DataTypes.INTEGER,
             allowNull: false,
         },
         reason: {

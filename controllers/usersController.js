@@ -102,7 +102,7 @@ exports.viewTeacher = async (req, res) => {
 
     const Users = await User.findAll({
       attributes: ["id", "code"],
-      where: { id }, // ✅ Fix is here
+      where: { id },
       include: [
         {
           model: Employee,
