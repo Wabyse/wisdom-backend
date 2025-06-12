@@ -55,8 +55,8 @@ const insertForm = async (req, res) => {
 
 const insertCurriculumForm = async (req, res) => {
   try {
-    const { userId, curriculumId, questionsResult } = req.body;
-    if (!userId || !curriculumId || !questionsResult) {
+    const { userId, curriculumId, organization_id, questionsResult } = req.body;
+    if (!userId || !curriculumId || !questionsResult || !organization_id) {
       return res.status(400).json({
         status: "fail",
         message: "All fields are required",
@@ -68,6 +68,7 @@ const insertCurriculumForm = async (req, res) => {
         {
           Assessor_id: userId,
           curriculum_id: curriculumId,
+          organization_id
         },
         { transaction }
       );

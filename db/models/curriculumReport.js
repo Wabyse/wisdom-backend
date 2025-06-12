@@ -24,6 +24,15 @@ module.exports = (sequelize, DataTypes) => {
             },
             onDelete: 'RESTRICT',
         },
+        organization_id: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            references: {
+                model: 'organizations',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT',
+        },
         deleted: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
@@ -42,6 +51,7 @@ module.exports = (sequelize, DataTypes) => {
         CurriculumReport.belongsTo(models.Curriculum, { foreignKey: 'curriculum_id', as: 'curriculum' });
         CurriculumReport.belongsTo(models.User, { foreignKey: 'Assessor_id', as: 'assessor' });
         CurriculumReport.hasMany(models.CurriculumResult, { foreignKey: 'report_id', as: 'results' });
+        CurriculumReport.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
     };
 
     return CurriculumReport;
