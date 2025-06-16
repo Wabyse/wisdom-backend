@@ -11,6 +11,7 @@ const tasksRoutes = require("./routes/tasksRoutes");
 const usersRoutes = require("./routes/usersRoutes");
 const teachersRoutes = require("./routes/teachersRoutes");
 const neqatyRoutes = require("./routes/neqatyRoutes");
+const dataRoutes = require("./routes/dataRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 const { sequelize } = require("./db/models");
 
@@ -33,6 +34,7 @@ app.use("/api/v1/tasks", tasksRoutes);
 app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/teachers", teachersRoutes);
 app.use("/api/v1/neqaty", neqatyRoutes);
+app.use("/api/v1/data", dataRoutes);
 
 app.use("*", (req, res) => {
   res.status(404).json({

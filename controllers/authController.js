@@ -9,7 +9,9 @@ const {
   Student,
   EmployeeRole,
   Department,
-  AdminsUsers
+  AdminsUsers,
+  Class,
+  Specialization
 } = require("../db/models");
 const { comparePassword, hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
@@ -231,6 +233,184 @@ const signup = async (req, res) => {
   }
 };
 
+const signupBulk = async (req, res) => {
+  try {
+    const users = req.body;
+
+    if (!Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({ message: "Users array is required" });
+    }
+
+    const createdResults = [];
+
+    await User.sequelize.transaction(async (transaction) => {
+      const lastUser = await User.findOne({
+        attributes: ["code"],
+        order: [["code", "DESC"]],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      let newCode = lastUser?.code ? lastUser.code + 1 : 1000;
+
+      for (const userData of users) {
+        const {
+          first_name,
+          middle_name,
+          last_name,
+          email,
+          user_role_id,
+          organization_id,
+          emp_role_id,
+          password,
+          planned_sessions,
+          subject_id,
+          department_id,
+          class_id,
+          specialization_id,
+        } = userData;
+
+        const normalizedEmail = email?.toLowerCase().trim();
+
+        if (
+          !first_name ||
+          !last_name ||
+          !normalizedEmail ||
+          !user_role_id ||
+          !organization_id ||
+          !password
+        ) {
+          throw new Error(`Missing required fields for email: ${email}`);
+        }
+
+        if (!validator.isEmail(normalizedEmail)) {
+          throw new Error(`Invalid email format: ${email}`);
+        }
+
+        const Role = await UserRole.findOne({
+          attributes: ["title"],
+          where: { id: user_role_id },
+          transaction,
+        });
+
+        if (!Role) {
+          throw new Error(`Invalid user role ID for email: ${email}`);
+        }
+
+        const hashedPassword = await hashPassword(password);
+
+        const user = await User.create(
+          {
+            code: newCode++,
+            password: hashedPassword,
+            role_id: user_role_id,
+          },
+          { transaction }
+        );
+
+        // Get organization name
+        const organization = await Organization.findByPk(organization_id, {
+          attributes: ['name'],
+          transaction,
+        });
+
+        let outputData = {
+          first_name,
+          middle_name,
+          last_name,
+          email: normalizedEmail,
+          code: user.code,
+          password,
+          organization: organization?.name || null,
+          class: null,
+          specialization: null,
+        };
+
+        if (Role.title === "Student") {
+          if (!class_id || !specialization_id) {
+            throw new Error(`Missing class/specialization for student: ${email}`);
+          }
+
+          await Student.create(
+            {
+              first_name,
+              middle_name,
+              last_name,
+              email: normalizedEmail,
+              user_id: user.id,
+              class_id,
+              specialization_id,
+              school_id: organization_id,
+            },
+            { transaction }
+          );
+
+          // Get class and specialization names
+          const classObj = await Class.findByPk(class_id, {
+            attributes: ['name'],
+            transaction,
+          });
+
+          const specialization = await Specialization.findByPk(specialization_id, {
+            attributes: ['name'],
+            transaction,
+          });
+
+          outputData.class = classObj?.name || null;
+          outputData.specialization = specialization?.name || null;
+        } else {
+          if (!emp_role_id) {
+            throw new Error(`Missing employee role ID for: ${email}`);
+          }
+
+          const employee = await Employee.create(
+            {
+              first_name,
+              middle_name,
+              last_name,
+              email: normalizedEmail,
+              organization_id,
+              role_id: emp_role_id,
+              user_id: user.id,
+            },
+            { transaction }
+          );
+
+          if (
+            Role.title === "Teacher" ||
+            Role.title === "Head of Department (HOD)"
+          ) {
+            if (!planned_sessions || !subject_id || !department_id) {
+              throw new Error(`Missing teacher details for: ${email}`);
+            }
+
+            await Teacher.create(
+              {
+                planned_sessions,
+                employee_id: employee.id,
+                subject_id,
+                department_id,
+              },
+              { transaction }
+            );
+          }
+        }
+
+        createdResults.push(outputData);
+      }
+    });
+
+    res.status(201).json({
+      message: "Users created successfully",
+      created: createdResults.length,
+      users: createdResults,
+    });
+  } catch (error) {
+    console.error("Bulk Signup Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
 const adminSignup = async (req, res) => {
   try {
     const {
@@ -327,4 +507,4 @@ const adminLogin = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, adminSignup, adminLogin };
+module.exports = { signup, login, adminSignup, adminLogin, signupBulk };
