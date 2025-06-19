@@ -7,5 +7,6 @@ router.get("/vtcPoints", neqatyController.viewVtcPoints);
 router.post("/updatePoints", neqatyController.updatePoints);
 router.get("/permissions", neqatyController.viewPointsPermissions);
 router.patch("/grantPointsRequests", neqatyController.PointRequestStatus);
+router.post("/userPoints", neqatyController.viewUserPoints);
 
 module.exports = router;
