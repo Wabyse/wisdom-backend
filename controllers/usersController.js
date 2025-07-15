@@ -236,6 +236,20 @@ exports.viewStudents = async (req, res) => {
         "class_id",
         "school_id",
       ],
+      include: [
+        {
+          model: Class,
+          as: "class",
+          required: true,
+          attributes: ["name"],
+        },
+        {
+          model: Organization,
+          as: "school",
+          required: true,
+          attributes: ["name"],
+        }
+      ],
     });
 
     res.status(200).json({

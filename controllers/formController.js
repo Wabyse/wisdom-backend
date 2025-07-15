@@ -313,6 +313,172 @@ const fetchAllOrgs = async (req, res) => {
   }
 };
 
+const insertBulkStudentsFormsTeacher = async (req, res) => {
+  try {
+    const forms = req.body;
+
+    if (!Array.isArray(forms) || forms.length === 0) {
+      return res.status(400).json({ message: "students array is required" });
+    }
+
+    const createdResults = [];
+
+    for (const formData of forms) {
+      const {
+        student_user_id,
+        teacher_user_id,
+        form_results
+      } = formData;
+
+      // Create Individual Report
+      const formReport = await IndividualReport.create({
+        Assessor_id: student_user_id,
+        Assessee_id: teacher_user_id
+      });
+
+      // Create all Question Results
+      for (const questionResult of form_results) {
+        await QuestionResult.create({
+          report_id: formReport.id,
+          score: questionResult.score,
+          question_id: questionResult.id,
+        });
+      }
+
+      // Add to response array
+      createdResults.push({
+        student_user_id,
+        teacher_user_id,
+        report_id: formReport.id
+      });
+    }
+
+    // Final response
+    res.status(201).json({
+      message: "data inserted successfully",
+      created: createdResults.length,
+      users: createdResults,
+    });
+  } catch (error) {
+    console.error("Bulk Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
+const insertBulkCurriculumForms = async (req, res) => {
+  const transaction = await User.sequelize.transaction();
+
+  try {
+    const forms = req.body;
+
+    if (!Array.isArray(forms) || forms.length === 0) {
+      await transaction.rollback(); // Rollback if bad input
+      return res.status(400).json({ message: "students array is required" });
+    }
+
+    const createdResults = [];
+
+    for (const formData of forms) {
+      const {
+        assessor_id,
+        curriculum_id,
+        organization_id,
+        form_results,
+      } = formData;
+
+      // Create Report
+      const formReport = await CurriculumReport.create({
+        Assessor_id: assessor_id,
+        curriculum_id,
+        organization_id
+      }, { transaction });
+
+      // Create Question Results
+      for (const questionResult of form_results) {
+        await CurriculumResult.create({
+          report_id: formReport.id,
+          score: questionResult.score,
+          question_id: questionResult.id,
+        }, { transaction });
+      }
+
+      createdResults.push({
+        student_user_id,
+        teacher_user_id,
+        report_id: formReport.id
+      });
+    }
+
+    await transaction.commit(); // Commit everything
+    res.status(201).json({
+      message: "data inserted successfully",
+      created: createdResults.length,
+      users: createdResults,
+    });
+
+  } catch (error) {
+    await transaction.rollback(); // Rollback everything on error
+    console.error("Bulk Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
+const insertBulkEnvironmentForms = async (req, res) => {
+  const transaction = await User.sequelize.transaction();
+
+  try {
+    const forms = req.body;
+
+    if (!Array.isArray(forms) || forms.length === 0) {
+      await transaction.rollback(); // Rollback if bad input
+      return res.status(400).json({ message: "students array is required" });
+    }
+
+    const createdResults = [];
+
+    for (const formData of forms) {
+      const {
+        assessor_id,
+        organization_id,
+        form_results,
+      } = formData;
+
+      // Create Report
+      const formReport = await EnvironmentReports.create({
+        user_id: assessor_id,
+        organization_id
+      }, { transaction });
+
+      // Create Question Results
+      for (const questionResult of form_results) {
+        await EnvironmentResults.create({
+          report_id: formReport.id,
+          score: questionResult.score,
+          question_id: questionResult.id,
+        }, { transaction });
+      }
+
+      createdResults.push({
+        assessor_id,
+        organization_id,
+        report_id: formReport.id
+      });
+    }
+
+    await transaction.commit(); // Commit everything
+    res.status(201).json({
+      message: "data inserted successfully",
+      created: createdResults.length,
+      users: createdResults,
+    });
+
+  } catch (error) {
+    await transaction.rollback(); // Rollback everything on error
+    console.error("Bulk Error:", error);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+};
+
 module.exports = {
   insertForm,
   fetchForm,
@@ -322,5 +488,8 @@ module.exports = {
   fetchAllDepartments,
   fetchAllUsers,
   fetchAllOrgs,
-  insertEnvForm
+  insertEnvForm,
+  insertBulkStudentsFormsTeacher,
+  insertBulkCurriculumForms,
+  insertBulkEnvironmentForms
 };

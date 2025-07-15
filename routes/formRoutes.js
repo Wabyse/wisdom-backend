@@ -1,5 +1,5 @@
 const express = require("express");
-const { insertForm, fetchForm, fetchAllForms, insertCurriculumForm, fetchAllCurriculums, fetchAllDepartments, fetchAllUsers, fetchAllOrgs, insertEnvForm } = require("../controllers/formController");
+const { insertForm, fetchForm, fetchAllForms, insertCurriculumForm, fetchAllCurriculums, fetchAllDepartments, fetchAllUsers, fetchAllOrgs, insertEnvForm, insertBulkStudentsFormsTeacher, insertBulkCurriculumForms, insertBulkEnvironmentForms } = require("../controllers/formController");
 const { authenticateToken } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -22,5 +22,8 @@ router.get("/AllUsers", authenticateToken, fetchAllUsers);
 // router.get("/AllUsers", fetchAllUsers);
 router.get("/AllOrgs", authenticateToken, fetchAllOrgs);
 // router.get("/AllOrgs", fetchAllOrgs);
+router.post("/bulkData/students/teacher", insertBulkStudentsFormsTeacher);
+router.post("/bulkData/curriculum", insertBulkCurriculumForms);
+router.post("/bulkData/environment", insertBulkEnvironmentForms);
 
 module.exports = router;
