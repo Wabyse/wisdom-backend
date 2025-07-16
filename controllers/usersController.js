@@ -16,7 +16,8 @@ const {
   studentBehaviorType,
   studentBehaviorCategory,
   studentBehavior,
-  EmployeeCheckInOut
+  EmployeeCheckInOut,
+  WaitingList
 } = require("../db/models");
 const path = require("path");
 
@@ -486,6 +487,20 @@ exports.viewCheckInOut = async (req, res) => {
     res.status(200).json({
       message: "Checked In / Out fetched successfully",
       checkInOuts,
+    });
+  } catch (error) {
+    console.error("Sequelize Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.addWaitingListUser = async (req, res) => {
+  try {
+    const waiter = await WaitingList.create();
+
+    res.status(200).json({
+      message: "User added to waiting list successfully",
+      waiter,
     });
   } catch (error) {
     console.error("Sequelize Error:", error);

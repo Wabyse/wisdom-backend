@@ -20,5 +20,6 @@ router.post("/students/behavior", usersController.submitBehavior);
 router.get("/students/behavior/categories", usersController.viewBehaviorCategories);
 router.post("/checkinout", usersController.checkInOut);
 router.get("/checkinout/view", usersController.viewCheckInOut);
+router.post("/addWaitingList", usersController.addWaitingListUser);
 
 module.exports = router;
