@@ -34,6 +34,7 @@ const login = async (req, res) => {
     let department = null; // Declare organization outside the if block
     let employeeRole = null;
     let employee = null;
+    let student = null;
 
     if (userRole.title !== "Student") {
       employee = await Employee.findOne({ where: { user_id: user.id } });
@@ -54,7 +55,7 @@ const login = async (req, res) => {
         });
       }
     } else {
-      const student = await Student.findOne({ where: { user_id: user.id } });
+      student = await Student.findOne({ where: { user_id: user.id } });
       if (student) {
         organization = await Organization.findOne({
           where: { id: student.school_id },
@@ -75,11 +76,13 @@ const login = async (req, res) => {
       message: "Login successful",
       id: user.id,
       code: user.code,
+      name: employee ? `${employee.first_name} ${employee.middle_name} ${employee.last_name}` : `${student.first_name} ${student.middle_name} ${student.last_name}`,
       organization_id: organization ? organization.id : null,
       department_id: department ? department.id : null,
       user_role: userRole.title,
       employee_id: employee ? employee.id : null,
       employee_role: employeeRole ? employeeRole.title : null,
+      email: employee ? employee.email : student.email,
       token,
     });
   } catch (error) {
