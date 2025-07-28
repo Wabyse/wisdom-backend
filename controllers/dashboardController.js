@@ -139,32 +139,6 @@ async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     const communityParticipation = community * 0.1;
     const institutionalPerformance = institutional * 0.1;
     const evaluation = Math.round((ODBM + APBM + TQBM + communityParticipation + institutionalPerformance) * 100);
-    // Detailed logging for audit
-    console.log(`EVALUATION AUDIT for Center: ${org.name} (ID: ${org.id})`);
-    console.log({
-        location: loc,
-        usedFallback,
-        totalAttendance,
-        attended,
-        traineeAttendance,
-        traineeCommitment,
-        trainerCourses,
-        projectAvg,
-        formativeAvg,
-        trainingRegularity,
-        trainingPrograms,
-        trainer,
-        digitization,
-        quality,
-        community,
-        institutional,
-        ODBM,
-        APBM,
-        TQBM,
-        communityParticipation,
-        institutionalPerformance,
-        evaluation
-    });
     return {
         id: org.id,
         name: org.name,
@@ -249,7 +223,6 @@ exports.centers = async (req, res) => {
             attributes: ['id', 'name', 'city', 'location'],
             order: [['id', 'ASC']]
         });
-        console.log(`Total organizations found in database: ${organizations.length}`);
         // Helper: default locations for known cities
         const cityLocations = {
             'القاهرة': '30.0444,31.2357',
@@ -304,7 +277,7 @@ exports.centers = async (req, res) => {
             // Trainee Commitment (ODBM & APBM)
             let traineeCommitment = 0;
             try {
-                const formsTraineeCommitment = await db.Form.findAll({ where: { en_name: 'test', ar_name: { [db.Sequelize.Op.like]: '%اداء المتدرب%' }, deleted: false }, attributes: ['id', 'code'] });
+                const formsTraineeCommitment = await db.Form.findAll({ where: { en_name: 'test', code: { [db.Sequelize.Op.like]: '%| TR' }, deleted: false }, attributes: ['id', 'code'] });
                 const formIdsTraineeCommitment = formsTraineeCommitment.map(f => f.id);
                 const fieldsTraineeCommitment = await db.Field.findAll({ where: { form_id: formIdsTraineeCommitment, deleted: false }, attributes: ['id'] });
                 const fieldIdsTraineeCommitment = fieldsTraineeCommitment.map(f => f.id);
@@ -343,54 +316,140 @@ exports.centers = async (req, res) => {
                 formativeAvg = quizTestsFormative.length > 0 ? formativeSum / quizTestsFormative.length : 0;
             } catch (e) { projectAvg = 0; formativeAvg = 0; }
             // TQBM: Training Regularity, Training Programs, Trainer, Digitization, Quality
-            async function getCurriculumScore(arNameLike) {
+            async function getCurriculumScore(codeLike, organizationId) {
                 try {
-                    const forms = await db.Form.findAll({ where: { ar_name: { [db.Sequelize.Op.like]: `%${arNameLike}%` }, deleted: false }, attributes: ['id'] });
+                    const { Op } = db.Sequelize;
+
+                    const forms = await db.Form.findAll({
+                        where: { code: { [Op.like]: `%${codeLike}` }, deleted: false },
+                        attributes: ['id']
+                    });
                     const formIds = forms.map(f => f.id);
                     if (!formIds.length) return 0;
+
                     const fields = await db.Field.findAll({ where: { form_id: formIds, deleted: false }, attributes: ['id'] });
                     const fieldIds = fields.map(f => f.id);
                     if (!fieldIds.length) return 0;
+
                     const subFields = await db.SubField.findAll({ where: { field_id: fieldIds, deleted: false }, attributes: ['id'] });
                     const subFieldIds = subFields.map(sf => sf.id);
                     if (!subFieldIds.length) return 0;
+
                     const questions = await db.Question.findAll({ where: { sub_field_id: subFieldIds, deleted: false }, attributes: ['id', 'max_score'] });
                     const questionIds = questions.map(q => q.id);
                     if (!questionIds.length) return 0;
-                    const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score]));
-                    const reports = await db.CurriculumReport.findAll({ where: { organization_id: org.id, deleted: false }, attributes: ['id'] });
-                    const reportIds = reports.map(r => r.id);
+
+                    const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+                    // ✅ Step 1: Get assessors (students & employees)
+                    const students = await db.Student.findAll({
+                        where: { school_id: organizationId },
+                        attributes: ['user_id']
+                    });
+                    const employees = await db.Employee.findAll({
+                        where: { organization_id: organizationId },
+                        attributes: ['user_id']
+                    });
+                    const validAssessorIds = new Set([
+                        ...students.map(s => s.user_id),
+                        ...employees.map(e => e.user_id)
+                    ]);
+                    if (!validAssessorIds.size) return 0;
+
+                    // ✅ Step 2: Get reports from valid assessors
+                    const reports = await db.CurriculumReport.findAll({
+                        where: { deleted: false },
+                        attributes: ['id', 'Assessor_id']
+                    });
+
+                    const filteredReports = reports.filter(r => validAssessorIds.has(r.Assessor_id));
+                    const reportIds = filteredReports.map(r => r.id);
                     if (!reportIds.length) return 0;
-                    const results = await db.CurriculumResult.findAll({ where: { report_id: reportIds, question_id: questionIds, deleted: false }, attributes: ['score', 'question_id'] });
+
+                    // ✅ Step 3: Get results
+                    const results = await db.CurriculumResult.findAll({
+                        where: {
+                            report_id: reportIds,
+                            question_id: questionIds,
+                            deleted: false
+                        },
+                        attributes: ['score', 'question_id']
+                    });
+
                     let totalScore = 0;
                     let totalMax = 0;
                     for (const r of results) {
-                        const max = questionMaxScores[r.question_id] || 1;
+                        const max = questionMaxScores[r.question_id] || 5;
                         totalScore += r.score;
                         totalMax += max;
                     }
+
                     return totalMax > 0 ? totalScore / totalMax : 0;
-                } catch (e) { return 0; }
+                } catch (e) {
+                    console.error('getCurriculumScore error:', e);
+                    return 0;
+                }
             }
-            async function getEnvironmentScore(arNameLike) {
+            async function getIndividualScore(codeLike) {
                 try {
-                    const forms = await db.Form.findAll({ where: { ar_name: { [db.Sequelize.Op.like]: `%${arNameLike}%` }, deleted: false }, attributes: ['id'] });
+                    const forms = await db.Form.findAll({
+                        where: { en_name: "test", code: { [Op.like]: `%${codeLike}` }, deleted: false },
+                        attributes: ['id']
+                    });
                     const formIds = forms.map(f => f.id);
                     if (!formIds.length) return 0;
-                    const fields = await db.Field.findAll({ where: { form_id: formIds, deleted: false }, attributes: ['id'] });
+
+                    const fields = await db.Field.findAll({
+                        where: { form_id: formIds, deleted: false },
+                        attributes: ['id']
+                    });
                     const fieldIds = fields.map(f => f.id);
                     if (!fieldIds.length) return 0;
-                    const subFields = await db.SubField.findAll({ where: { field_id: fieldIds, deleted: false }, attributes: ['id'] });
+
+                    const subFields = await db.SubField.findAll({
+                        where: { field_id: fieldIds, deleted: false },
+                        attributes: ['id']
+                    });
                     const subFieldIds = subFields.map(sf => sf.id);
                     if (!subFieldIds.length) return 0;
-                    const questions = await db.Question.findAll({ where: { sub_field_id: subFieldIds, deleted: false }, attributes: ['id', 'max_score'] });
+
+                    const questions = await db.Question.findAll({
+                        where: { sub_field_id: subFieldIds, deleted: false },
+                        attributes: ['id', 'max_score']
+                    });
                     const questionIds = questions.map(q => q.id);
                     if (!questionIds.length) return 0;
-                    const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score]));
-                    const reports = await db.EnvironmentReports.findAll({ where: { organization_id: org.id, deleted: false }, attributes: ['id'] });
+
+                    const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+                    // ✅ Get employees for the org
+                    const employees = await db.Employee.findAll({
+                        where: { organization_id: org.id },
+                        attributes: ['user_id']
+                    });
+                    const employeeUserIds = employees.map(e => e.user_id);
+                    if (!employeeUserIds.length) return 0;
+
+                    // ✅ Get only reports from those employees
+                    const reports = await db.IndividualReport.findAll({
+                        where: {
+                            Assessee_id: employeeUserIds,
+                            deleted: false
+                        },
+                        attributes: ['id']
+                    });
                     const reportIds = reports.map(r => r.id);
                     if (!reportIds.length) return 0;
-                    const results = await db.EnvironmentResults.findAll({ where: { report_id: reportIds, question_id: questionIds, deleted: false }, attributes: ['score', 'question_id'] });
+
+                    const results = await db.QuestionResult.findAll({
+                        where: {
+                            report_id: reportIds,
+                            question_id: questionIds,
+                            deleted: false
+                        },
+                        attributes: ['score', 'question_id']
+                    });
+
                     let totalScore = 0;
                     let totalMax = 0;
                     for (const r of results) {
@@ -398,26 +457,111 @@ exports.centers = async (req, res) => {
                         totalScore += r.score;
                         totalMax += max;
                     }
+
                     return totalMax > 0 ? totalScore / totalMax : 0;
-                } catch (e) { return 0; }
+
+                } catch (e) {
+                    return 0;
+                }
+            }
+            async function getEnvironmentScore(codeLike, org) {
+                try {
+                    const { Op } = db.Sequelize;
+
+                    const forms = await db.Form.findAll({
+                        where: { code: { [Op.like]: `%${codeLike}` }, deleted: false },
+                        attributes: ['id']
+                    });
+                    const formIds = forms.map(f => f.id);
+                    if (!formIds.length) return 0;
+
+                    const fields = await db.Field.findAll({
+                        where: { form_id: formIds, deleted: false },
+                        attributes: ['id']
+                    });
+                    const fieldIds = fields.map(f => f.id);
+                    if (!fieldIds.length) return 0;
+
+                    const subFields = await db.SubField.findAll({
+                        where: { field_id: fieldIds, deleted: false },
+                        attributes: ['id']
+                    });
+                    const subFieldIds = subFields.map(sf => sf.id);
+                    if (!subFieldIds.length) return 0;
+
+                    const questions = await db.Question.findAll({
+                        where: { sub_field_id: subFieldIds, deleted: false },
+                        attributes: ['id', 'max_score']
+                    });
+                    const questionIds = questions.map(q => q.id);
+                    if (!questionIds.length) return 0;
+
+                    const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+                    // ✅ Step 1: Get valid users (students + employees)
+                    const students = await db.Student.findAll({
+                        where: { school_id: org.id },
+                        attributes: ['user_id']
+                    });
+                    const employees = await db.Employee.findAll({
+                        where: { organization_id: org.id },
+                        attributes: ['user_id']
+                    });
+                    const validUserIds = [...students.map(s => s.user_id), ...employees.map(e => e.user_id)];
+                    if (!validUserIds.length) return 0;
+
+                    // ✅ Step 2: Get reports written by those users
+                    const reports = await db.EnvironmentReports.findAll({
+                        where: {
+                            user_id: validUserIds,
+                            deleted: false
+                        },
+                        attributes: ['id']
+                    });
+                    const reportIds = reports.map(r => r.id);
+                    if (!reportIds.length) return 0;
+
+                    // ✅ Step 3: Get environment results for those reports & questions
+                    const results = await db.EnvironmentResults.findAll({
+                        where: {
+                            report_id: reportIds,
+                            question_id: questionIds,
+                            deleted: false
+                        },
+                        attributes: ['score', 'question_id']
+                    });
+
+                    let totalScore = 0;
+                    let totalMax = 0;
+                    for (const r of results) {
+                        const max = questionMaxScores[r.question_id] || 5;
+                        totalScore += r.score;
+                        totalMax += max;
+                    }
+
+                    return totalMax > 0 ? totalScore / totalMax : 0;
+                } catch (e) {
+                    console.error('getEnvironmentScore error:', e);
+                    return 0;
+                }
             }
             // TQBM
-            const trainingRegularity = await getCurriculumScore('بيئة التدريب');
-            const trainingPrograms = await getCurriculumScore('برامج تدريبية');
-            const trainer = await getCurriculumScore('اداء المدرب');
-            const digitization = await getEnvironmentScore('الرقمنة و تخزين البيانات');
-            const quality = await getEnvironmentScore('الجودة و التطوير');
+            const trainingRegularity = await getCurriculumScore('| TE', org.id);
+            const trainingPrograms = await getCurriculumScore('| TG', org.id);
+            const trainer = await getIndividualScore('| T');
+            const digitization = await getEnvironmentScore('| DD', org);
+            const quality = await getEnvironmentScore('| QD', org);
             // COMMUNITY
-            const community = await getEnvironmentScore('مشاركة مجتمعية');
+            const community = await getEnvironmentScore('| CP', org);
             // INSTITUTIONAL
-            const institutional = await getEnvironmentScore('اداء مؤسسي');
+            const institutional = await getEnvironmentScore('| IP', org);
             // --- Calculate weighted evaluation ---
-            const ODBM = (traineeAttendance * 0.4 + traineeCommitment * 0.2 + (trainerCourses || 0) * 0.4) * 0.2;
-            const APBM = (projectAvg * 0.6 + formativeAvg * 0.3 + traineeCommitment * 0.1) * 0.2;
-            const TQBM = (trainingRegularity * 0.25 + trainingPrograms * 0.25 + trainer * 0.25 + digitization * 0.15 + quality * 0.10) * 0.4;
-            const communityParticipation = community * 0.1;
-            const institutionalPerformance = institutional * 0.1;
-            const evaluation = Math.round((ODBM + APBM + TQBM + communityParticipation + institutionalPerformance) * 100);
+            const ODBM = (traineeAttendance * 40 + traineeCommitment * 20 + (trainerCourses || 0) * 40) * 0.2;
+            const APBM = (projectAvg * 60 + formativeAvg * 30 + traineeCommitment * 10) * 0.2;
+            const TQBM = (trainingRegularity * 25 + trainingPrograms * 25 + trainer * 25 + digitization * 15 + quality * 10) * 0.4;
+            const communityParticipation = (community * 100) * 0.1;
+            const institutionalPerformance = (institutional * 100) * 0.1;
+            const evaluation = Math.round((ODBM + APBM + TQBM + communityParticipation + institutionalPerformance));
             centers.push({
                 id: org.id,
                 name: org.name,
@@ -428,8 +572,6 @@ exports.centers = async (req, res) => {
                 evaluation
             });
         }
-        // Log all organizations and their computed locations
-        console.log('All organizations with computed locations:', centers);
         res.json({ centers });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });
@@ -482,13 +624,13 @@ exports.centerEvaluationBreakdown = async (req, res) => {
         const attended = await db.studentAttendance.count({
             where: { student_id: studentIds, status: 'attend', deleted: false }
         });
-        const traineeAttendance = totalAttendance > 0 ? attended / totalAttendance : null;
+        const traineeAttendance = totalAttendance > 0 ? attended / totalAttendance : 0;
 
         // Trainee Commitment (ODBM & APBM)
         const formsTraineeCommitment = await db.Form.findAll({
             where: {
                 en_name: 'test',
-                ar_name: { [db.Sequelize.Op.like]: '%اداء المتدرب%' },
+                code: { [db.Sequelize.Op.like]: '%| TR' },
                 deleted: false
             },
             attributes: ['id', 'code']
@@ -526,10 +668,10 @@ exports.centerEvaluationBreakdown = async (req, res) => {
             totalScoreTraineeCommitment += qr.score;
             totalMaxTraineeCommitment += max;
         }
-        const traineeCommitment = totalMaxTraineeCommitment > 0 ? totalScoreTraineeCommitment / totalMaxTraineeCommitment : null;
+        const traineeCommitment = totalMaxTraineeCommitment > 0 ? totalScoreTraineeCommitment / totalMaxTraineeCommitment : 0;
 
         // Trainer Courses: Placeholder
-        const trainerCourses = null;
+        const trainerCourses = 0;
 
         // APBM: Project & Formative
         // Get all students' quizzes/tests
@@ -545,90 +687,198 @@ exports.centerEvaluationBreakdown = async (req, res) => {
             attributes: ['result']
         });
         const projectSum = quizTestsProject.reduce((sum, q) => sum + (q.result || 0), 0);
-        const projectAvg = quizTestsProject.length > 0 ? projectSum / quizTestsProject.length : null;
+        const projectAvg = quizTestsProject.length > 0 ? projectSum / quizTestsProject.length : 0;
         // Formative (quiz)
         const quizTestsFormative = await db.QuizTest.findAll({
             where: { template_id: templateIdsQuiz, student_id: studentIds, deleted: false },
             attributes: ['result']
         });
         const formativeSum = quizTestsFormative.reduce((sum, q) => sum + (q.result || 0), 0);
-        const formativeAvg = quizTestsFormative.length > 0 ? formativeSum / quizTestsFormative.length : null;
+        const formativeAvg = quizTestsFormative.length > 0 ? formativeSum / quizTestsFormative.length : 0;
 
         // TQBM: Training Regularity, Training Programs, Trainer, Digitization, Quality
         // Helper for curriculum_reports/curriculum_results
-        async function getCurriculumScore(arNameLike) {
+        async function getCurriculumScore(codeLike, organizationId) {
+            const { Op } = db.Sequelize;
+
             const forms = await db.Form.findAll({
-                where: { ar_name: { [db.Sequelize.Op.like]: `%${arNameLike}%` }, deleted: false },
+                where: { code: { [Op.like]: `%${codeLike}` }, deleted: false },
                 attributes: ['id']
             });
             const formIds = forms.map(f => f.id);
             if (!formIds.length) return null;
+
             const fields = await db.Field.findAll({ where: { form_id: formIds, deleted: false }, attributes: ['id'] });
             const fieldIds = fields.map(f => f.id);
             if (!fieldIds.length) return null;
+
             const subFields = await db.SubField.findAll({ where: { field_id: fieldIds, deleted: false }, attributes: ['id'] });
             const subFieldIds = subFields.map(sf => sf.id);
             if (!subFieldIds.length) return null;
+
             const questions = await db.Question.findAll({ where: { sub_field_id: subFieldIds, deleted: false }, attributes: ['id', 'max_score'] });
             const questionIds = questions.map(q => q.id);
             if (!questionIds.length) return null;
-            const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score]));
-            const reports = await db.CurriculumReport.findAll({ where: { organization_id: id, deleted: false }, attributes: ['id'] });
+
+            const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+            const reports = await db.CurriculumReport.findAll({ where: { deleted: false }, attributes: ['id', 'Assessor_id'] });
+            const reportAssessorMap = Object.fromEntries(reports.map(r => [r.id, r.Assessor_id]));
             const reportIds = reports.map(r => r.id);
             if (!reportIds.length) return null;
-            const results = await db.CurriculumResult.findAll({ where: { report_id: reportIds, question_id: questionIds, deleted: false }, attributes: ['score', 'question_id'] });
+
+            const students = await db.Student.findAll({ where: { school_id: organizationId }, attributes: ['user_id'] });
+            const employees = await db.Employee.findAll({ where: { organization_id: organizationId }, attributes: ['user_id'] });
+            const allowedAssessorIds = new Set([...students.map(s => s.user_id), ...employees.map(e => e.user_id)]);
+
+            const results = await db.CurriculumResult.findAll({
+                where: { report_id: reportIds, question_id: questionIds, deleted: false },
+                attributes: ['score', 'question_id', 'report_id']
+            });
+
             let totalScore = 0;
             let totalMax = 0;
             for (const r of results) {
-                const max = questionMaxScores[r.question_id] || 1;
+                const assessorId = reportAssessorMap[r.report_id];
+                if (!allowedAssessorIds.has(assessorId)) continue;
+                const max = questionMaxScores[r.question_id] || 5;
                 totalScore += r.score;
                 totalMax += max;
             }
-            return totalMax > 0 ? totalScore / totalMax : null;
+
+            return totalMax > 0 ? (totalScore / totalMax) : null;
+        }
+        // Helper for individual_reports/questions_results
+        async function getIndividualScore(codeLike, organizationId) {
+            const { Op } = db.Sequelize;
+
+            const forms = await db.Form.findAll({
+                where: { code: { [Op.like]: `%${codeLike}` }, deleted: false },
+                attributes: ['id']
+            });
+            const formIds = forms.map(f => f.id);
+            if (!formIds.length) return null;
+
+            const fields = await db.Field.findAll({ where: { form_id: formIds, deleted: false }, attributes: ['id'] });
+            const fieldIds = fields.map(f => f.id);
+            if (!fieldIds.length) return null;
+
+            const subFields = await db.SubField.findAll({ where: { field_id: fieldIds, deleted: false }, attributes: ['id'] });
+            const subFieldIds = subFields.map(sf => sf.id);
+            if (!subFieldIds.length) return null;
+
+            const questions = await db.Question.findAll({ where: { sub_field_id: subFieldIds, deleted: false }, attributes: ['id', 'max_score'] });
+            const questionIds = questions.map(q => q.id);
+            if (!questionIds.length) return null;
+
+            const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+            const employees = await db.Employee.findAll({ where: { organization_id: organizationId }, attributes: ['user_id'] });
+            const employeeUserIds = employees.map(e => e.user_id);
+            if (!employeeUserIds.length) return null;
+
+            const reports = await db.IndividualReport.findAll({
+                where: {
+                    deleted: false,
+                    Assessee_id: employeeUserIds
+                },
+                attributes: ['id', 'Assessee_id']
+            });
+            const reportIds = reports.map(r => r.id);
+            if (!reportIds.length) return null;
+
+            const reportAssesseeMap = Object.fromEntries(reports.map(r => [r.id, r.Assessee_id]));
+
+            const results = await db.QuestionResult.findAll({
+                where: { report_id: reportIds, question_id: questionIds, deleted: false },
+                attributes: ['score', 'question_id', 'report_id']
+            });
+
+            let totalScore = 0;
+            let totalMax = 0;
+            for (const r of results) {
+                const assesseeId = reportAssesseeMap[r.report_id];
+                if (!employeeUserIds.includes(assesseeId)) continue;
+
+                const max = questionMaxScores[r.question_id] || 5;
+                totalScore += r.score;
+                totalMax += max;
+            }
+
+            return totalMax > 0 ? (totalScore / totalMax) : null;
         }
         // Helper for environment_reports/environment_results
-        async function getEnvironmentScore(arNameLike) {
+        async function getEnvironmentScore(codeLike, organizationId) {
+            const { Op } = db.Sequelize;
+
             const forms = await db.Form.findAll({
-                where: { ar_name: { [db.Sequelize.Op.like]: `%${arNameLike}%` }, deleted: false },
+                where: { en_name: 'test', code: { [Op.like]: `%${codeLike}` }, deleted: false },
                 attributes: ['id']
             });
             const formIds = forms.map(f => f.id);
             if (!formIds.length) return null;
+
             const fields = await db.Field.findAll({ where: { form_id: formIds, deleted: false }, attributes: ['id'] });
             const fieldIds = fields.map(f => f.id);
             if (!fieldIds.length) return null;
+
             const subFields = await db.SubField.findAll({ where: { field_id: fieldIds, deleted: false }, attributes: ['id'] });
             const subFieldIds = subFields.map(sf => sf.id);
             if (!subFieldIds.length) return null;
+
             const questions = await db.Question.findAll({ where: { sub_field_id: subFieldIds, deleted: false }, attributes: ['id', 'max_score'] });
             const questionIds = questions.map(q => q.id);
             if (!questionIds.length) return null;
-            const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score]));
-            const reports = await db.EnvironmentReports.findAll({ where: { organization_id: id, deleted: false }, attributes: ['id'] });
+
+            const questionMaxScores = Object.fromEntries(questions.map(q => [q.id, q.max_score || 5]));
+
+            // Get users from students/employees that belong to the organization
+            const students = await db.Student.findAll({ where: { school_id: organizationId }, attributes: ['user_id'] });
+            const employees = await db.Employee.findAll({ where: { organization_id: organizationId }, attributes: ['user_id'] });
+            const validUserIds = [...students.map(s => s.user_id), ...employees.map(e => e.user_id)];
+            if (!validUserIds.length) return null;
+
+            const reports = await db.EnvironmentReports.findAll({
+                where: {
+                    user_id: validUserIds,
+                    deleted: false
+                },
+                attributes: ['id']
+            });
             const reportIds = reports.map(r => r.id);
             if (!reportIds.length) return null;
-            const results = await db.EnvironmentResults.findAll({ where: { report_id: reportIds, question_id: questionIds, deleted: false }, attributes: ['score', 'question_id'] });
+
+            const results = await db.EnvironmentResults.findAll({
+                where: {
+                    report_id: reportIds,
+                    question_id: questionIds,
+                    deleted: false
+                },
+                attributes: ['score', 'question_id']
+            });
+
             let totalScore = 0;
             let totalMax = 0;
             for (const r of results) {
-                const max = questionMaxScores[r.question_id] || 1;
+                const max = questionMaxScores[r.question_id] || 5;
                 totalScore += r.score;
                 totalMax += max;
             }
-            return totalMax > 0 ? totalScore / totalMax : null;
+
+            return totalMax > 0 ? totalScore / totalMax : 0;
         }
 
         // TQBM
-        const trainingRegularity = await getCurriculumScore('بيئة التدريب');
-        const trainingPrograms = await getCurriculumScore('برامج تدريبية');
-        const trainer = await getCurriculumScore('اداء المدرب');
-        const digitization = await getEnvironmentScore('الرقمنة و تخزين البيانات');
-        const quality = await getEnvironmentScore('الجودة و التطوير');
+        const trainingRegularity = await getCurriculumScore('| TE', id);
+        const trainingPrograms = await getCurriculumScore('| TG', id);
+        const trainer = await getIndividualScore('| T', id);
+        const digitization = await getEnvironmentScore('| DD', id);
+        const quality = await getEnvironmentScore('| QD', id);
 
         // COMMUNITY
-        const community = await getEnvironmentScore('مشاركة مجتمعية');
+        const community = await getEnvironmentScore('| CP', id);
         // INSTITUTIONAL
-        const institutional = await getEnvironmentScore('اداء مؤسسي');
+        const institutional = await getEnvironmentScore('| IP', id);
 
         res.json({
             ODBM: {
