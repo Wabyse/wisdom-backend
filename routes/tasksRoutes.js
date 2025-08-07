@@ -9,5 +9,6 @@ router.get("/categories", authenticateToken, taskController.viewCategories);
 router.post("/assign", upload.single("file"), taskController.assignTask);
 router.get("/view", taskController.viewTasks);
 router.patch("/updateStatus/:id", upload.single("file"), taskController.updateStatus);
+router.get("/general-info", taskController.generalInfo);
 
 module.exports = router;

@@ -98,7 +98,8 @@ exports.viewTasks = async (req, res) => {
         "status",
         "importance",
         "file_path",
-        "createdAt"
+        "createdAt",
+        "updatedAt"
       ],
       include: [
         {
@@ -158,6 +159,52 @@ exports.updateStatus = async (req, res) => {
     res.status(200).json({
       status: "success",
       message: "status got updated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.generalInfo = async (req, res) => {
+  try {
+    const ORG_IDS = [4, 5, 7, 8, 9];
+
+    const includeAssigneeWithOrgFilter = {
+      model: Employee,
+      as: 'assignee',
+      where: {
+        organization_id: ORG_IDS
+      }
+    };
+
+    const countTotalTasks = await Task.count({
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks
+      },
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
