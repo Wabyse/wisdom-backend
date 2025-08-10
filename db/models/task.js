@@ -27,6 +27,10 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             type: DataTypes.ENUM('normal', 'important', 'urgent'),
         },
+        task_size: {
+            allowNull: false,
+            type: DataTypes.ENUM('small', 'medium', 'large'),
+        },
         sub_category: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -60,6 +64,12 @@ module.exports = (sequelize, DataTypes) => {
         submit_file_path: {
             type: DataTypes.TEXT
         },
+        assigned_by_evaluation: {
+            type: DataTypes.INTEGER,
+        },
+        manager_evaluation: {
+            type: DataTypes.INTEGER,
+        },
         deleted: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
@@ -72,7 +82,7 @@ module.exports = (sequelize, DataTypes) => {
         tableName: 'tasks',
         timestamps: true,
     });
-    
+
     Task.associate = (models) => {
         Task.belongsTo(models.TaskSubCategory, { foreignKey: 'sub_category', as: 'taskSubCategory' });
         Task.belongsTo(models.Employee, { foreignKey: 'assignedBy_id', as: 'assigner' });

@@ -3,6 +3,7 @@ const {
   TaskSubCategory,
   Task,
   Employee,
+  sequelize,
 } = require("../db/models");
 const path = require("path");
 
@@ -98,6 +99,10 @@ exports.viewTasks = async (req, res) => {
         "status",
         "importance",
         "file_path",
+        "submit_file_path",
+        "task_size",
+        "assigned_by_evaluation",
+        "manager_evaluation",
         "createdAt",
         "updatedAt"
       ],
@@ -196,6 +201,46 @@ exports.generalInfo = async (req, res) => {
       include: [includeAssigneeWithOrgFilter]
     });
 
+    let avgManagerEvaluation = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_evaluation')), 'averageManager']
+      ], raw: true,
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    let avgAssignedByEvaluation = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assigned_by_evaluation')), 'averageAssignedBy']
+      ], raw: true,
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const avgManager = avgManagerEvaluation.averageMarks ? avgManagerEvaluation.averageMarks : 0;
+    const avgAssignedBy = avgAssignedByEvaluation.averageAssignedBy ? avgAssignedByEvaluation.averageAssignedBy : 0;
+
+    let allStatus = await Task.findAll({
+      attributes: ["status"]
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    })
+
+    let sumStatus = 0;
+
+    for(let i = 0; i < allStatus.length; i++) {
+      console.log(allStatus[i].dataValues.status);
+      if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
+        sumStatus += 0;
+      } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {
+        sumStatus += 100;
+      } else {
+        sumStatus += Number(allStatus[i].dataValues.status)
+      }
+    }
+
+    const avgStatus = (sumStatus / allStatus.length) * 0.2
+
     res.status(200).json({
       status: "success",
       message: "data got fetched successfully",
@@ -203,7 +248,8 @@ exports.generalInfo = async (req, res) => {
         totalTasks: countTotalTasks,
         totalNormalTasks: countNormalTasks,
         totalImportantTasks: countImportantTasks,
-        totalUrgentTasks: countUrgentTasks
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgAssignedBy * 0.5) + Math.round(avgStatus * 100) / 100
       },
     });
   } catch (error) {
