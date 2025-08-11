@@ -70,6 +70,24 @@ module.exports = (sequelize, DataTypes) => {
         manager_evaluation: {
             type: DataTypes.INTEGER,
         },
+        sub_task_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'tasks',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
+        organization_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'organizations',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
         deleted: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
@@ -87,6 +105,8 @@ module.exports = (sequelize, DataTypes) => {
         Task.belongsTo(models.TaskSubCategory, { foreignKey: 'sub_category', as: 'taskSubCategory' });
         Task.belongsTo(models.Employee, { foreignKey: 'assignedBy_id', as: 'assigner' });
         Task.belongsTo(models.Employee, { foreignKey: 'assignee_id', as: 'assignee' });
+        Task.belongsTo(models.Task, { foreignKey: 'sub_task_id', as: 'mainTask' });
+        Task.hasMany(models.Task, { foreignKey: 'sub_task_id', as: 'subTasks' });
     };
 
     return Task;

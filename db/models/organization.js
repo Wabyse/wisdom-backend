@@ -21,6 +21,15 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       type: DataTypes.ENUM('school', 'company', 'government', 'other'),
     },
+    authority_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'authorities',
+        key: 'id',
+      },
+      onDelete: 'RESTRICT'
+    },
     deleted: {
       type: DataTypes.BOOLEAN,
       defaultValue: false

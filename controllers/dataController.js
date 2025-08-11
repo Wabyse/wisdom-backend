@@ -1,7 +1,7 @@
-const { Specialization } = require("../db/models");
+const { Specialization, Authority, Organization } = require("../db/models");
 require("dotenv").config();
 
-const specializations = async (req, res) => {
+exports.specializations = async (req, res) => {
     try {
         const Specializations = await Specialization.findAll({
             attributes: ["id", "name", "createdAt"],
@@ -16,4 +16,35 @@ const specializations = async (req, res) => {
     }
 }
 
-module.exports = { specializations };
+exports.authorities = async (req, res) => {
+    try {
+        const Authorities = await Authority.findAll({
+            attributes: ["id", "name"],
+            order: [["id", "ASC"]],
+        });
+        res.status(200).json({
+            status: "success",
+            message: "Authorities got fetched successfully",
+            Authorities,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+    }
+}
+
+exports.projects = async (req, res) => {
+    try {
+        const projects = await Organization.findAll({
+            attributes: ["id", "name", "authority_id"],
+            order: [["id", "ASC"]],
+        });
+
+        res.status(200).json({
+            status: "success",
+            message: "data got fetched successfully",
+            projects,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+    }
+};

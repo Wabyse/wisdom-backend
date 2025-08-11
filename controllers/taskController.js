@@ -38,9 +38,12 @@ exports.assignTask = async (req, res) => {
       start_date,
       end_date,
       importance,
+      task_size,
       sub_category,
       assignedBy_id,
       assignee_id,
+      sub_task_id,
+      organization_id
     } = req.body;
 
     // Check for missing fields
@@ -50,9 +53,11 @@ exports.assignTask = async (req, res) => {
       !start_date ||
       !end_date ||
       !importance ||
+      !task_size ||
       !sub_category ||
       !assignedBy_id ||
-      !assignee_id
+      !assignee_id ||
+      !organization_id
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -71,9 +76,12 @@ exports.assignTask = async (req, res) => {
       end_date,
       status: "not started yet",
       importance,
+      task_size,
       sub_category,
       assignedBy_id,
       assignee_id,
+      sub_task_id,
+      organization_id,
       file_path, // Will be null if no file is uploaded
     });
 
@@ -103,6 +111,7 @@ exports.viewTasks = async (req, res) => {
         "task_size",
         "assigned_by_evaluation",
         "manager_evaluation",
+        "sub_task_id",
         "createdAt",
         "updatedAt"
       ],
@@ -229,7 +238,6 @@ exports.generalInfo = async (req, res) => {
     let sumStatus = 0;
 
     for(let i = 0; i < allStatus.length; i++) {
-      console.log(allStatus[i].dataValues.status);
       if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
         sumStatus += 0;
       } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {
