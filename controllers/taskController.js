@@ -142,8 +142,51 @@ exports.viewTasks = async (req, res) => {
           required: true,
           attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
         },
+        {
+          model: Task,
+          as: "subTasks",
+          attributes: [
+            "id",
+            "task",
+            "description",
+            "start_date",
+            "end_date",
+            "status",
+            "importance",
+            "file_path",
+            "submit_file_path",
+            "task_size",
+            "assigned_by_evaluation",
+            "manager_evaluation",
+            "sub_task_id",
+            "createdAt",
+            "updatedAt"
+          ],
+          include: [
+            {
+              model: Employee,
+              as: "assignee",
+              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+            },
+            {
+              model: TaskSubCategory,
+              as: "taskSubCategory",
+              required: true,
+              attributes: ["id", "name"],
+              include: [
+                {
+                  model: TaskCategory,
+                  as: "taskCategory",
+                  required: true,
+                  attributes: ["id", "name"],
+                },
+              ],
+            },
+          ]
+        }
       ],
     });
+
     res.status(200).json({
       status: "success",
       message: "data got fetched successfully",
@@ -237,7 +280,7 @@ exports.generalInfo = async (req, res) => {
 
     let sumStatus = 0;
 
-    for(let i = 0; i < allStatus.length; i++) {
+    for (let i = 0; i < allStatus.length; i++) {
       if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
         sumStatus += 0;
       } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {

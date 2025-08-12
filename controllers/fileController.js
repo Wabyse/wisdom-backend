@@ -15,32 +15,43 @@ const {
 } = require("../db/models");
 
 // Upload File
+// controllers/fileController.js
 exports.uploadFile = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
   const { department_id, organization_id, user_id, sub_category } = req.body;
-
   if (!department_id || !organization_id || !user_id || !sub_category) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const filePath = `uploads/${req.file.filename}`; // Always stores with forward slashes
+  // Normalize to forward slashes for clients
+  const storedPath = req.file.path.replace(/\\/g, "/");
 
   try {
-    const file = await SchoolDocument.create({
-      file_path: filePath,
+    const row = await SchoolDocument.create({
+      file_path: storedPath,
       department_id,
       organization_id,
       user_id,
       sub_category,
     });
 
+    // Decode originalname in case it’s mojibake
+    const decodedOriginal =
+      Buffer.from(req.file.originalname, "latin1").toString("utf8");
+
     res.json({
       message: "File uploaded successfully",
-      filePath: file.file_path,
-      fileDetails: file,
+      filePath: storedPath,
+      fileDetails: {
+        originalname: decodedOriginal,
+        savedAs: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        file: row
+      },
     });
   } catch (err) {
     console.error(err);
