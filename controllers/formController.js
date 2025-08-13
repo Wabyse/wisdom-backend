@@ -16,6 +16,7 @@ const {
   Organization,
   EnvironmentReports,
   EnvironmentResults,
+  TraineeRegistrationData
 } = require("../db/models");
 require("dotenv").config();
 
@@ -479,6 +480,93 @@ const insertBulkEnvironmentForms = async (req, res) => {
   }
 };
 
+const insertTraineeForm = async (req, res) => {
+  try {
+    const {
+      first_name,
+      second_name,
+      third_name,   // ✅ correct spelling
+      fourth_name,
+      birth_date,
+      vtc,
+      gov,
+      course,
+      email,
+      certification,
+      school,
+      known_us,
+      phone,
+      whatsapp,
+      notes
+    } = req.body;
+
+    // required fields check
+    const required = {
+      first_name,
+      second_name,
+      third_name,   // ✅ make sure this is required if your schema requires it
+      fourth_name,
+      birth_date,
+      vtc,
+      gov,
+      course,
+      certification,
+      school,
+      known_us,
+      phone,
+      whatsapp,
+    };
+
+    for (const [key, value] of Object.entries(required)) {
+      if (value === undefined || value === null || value === "") {
+        return res.status(400).json({ status: "fail", message: `Field "${key}" is required` });
+      }
+    }
+
+    const traineeEmail = email || "test@test.com";
+
+    const form = await TraineeRegistrationData.create({
+      first_name,
+      second_name,
+      third_name,   // ✅ same spelling here
+      fourth_name,
+      birth_date,
+      vtc,
+      gov,
+      course,
+      email: traineeEmail,
+      certification,
+      school,
+      known_us,
+      phone,
+      whatsapp,
+      notes
+    });
+
+    return res.status(201).json({
+      status: "success",
+      message: "Form inserted successfully",
+      form
+    });
+  } catch (error) {
+    // Make validation & duplicate errors visible to the client
+    // Mongoose:
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ status: "fail", message: error.message, details: error.errors });
+    }
+    if (error.code === 11000) {
+      return res.status(409).json({ status: "fail", message: "Duplicate key", keyValue: error.keyValue });
+    }
+    // Sequelize (if you use it):
+    if (error.name === "SequelizeValidationError" || error.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({ status: "fail", message: error.message, errors: error.errors });
+    }
+
+    console.error("Insert trainee error:", error); // helpful in dev
+    return res.status(500).json({ status: "error", message: "Server error", error: error.message });
+  }
+};
+
 module.exports = {
   insertForm,
   fetchForm,
@@ -491,5 +579,6 @@ module.exports = {
   insertEnvForm,
   insertBulkStudentsFormsTeacher,
   insertBulkCurriculumForms,
-  insertBulkEnvironmentForms
+  insertBulkEnvironmentForms,
+  insertTraineeForm
 };

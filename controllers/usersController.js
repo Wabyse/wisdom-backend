@@ -322,7 +322,7 @@ exports.viewStages = async (req, res) => {
 exports.viewSchools = async (req, res) => {
   try {
     const schools = await Organization.findAll({
-      attributes: ["id", "name"],
+      attributes: ["id", "name", "authority_id"],
       where: { type: "school" },
     });
 
