@@ -46,6 +46,18 @@ exports.assignTask = async (req, res) => {
       organization_id
     } = req.body;
 
+    console.log(task,
+      description,
+      start_date,
+      end_date,
+      importance,
+      task_size,
+      sub_category,
+      assignedBy_id,
+      assignee_id,
+      sub_task_id,
+      organization_id)
+
     // Check for missing fields
     if (
       !task ||
@@ -80,7 +92,7 @@ exports.assignTask = async (req, res) => {
       sub_category,
       assignedBy_id,
       assignee_id,
-      sub_task_id,
+      sub_task_id: sub_task_id ? sub_task_id : 1,
       organization_id,
       file_path, // Will be null if no file is uploaded
     });
