@@ -65,6 +65,7 @@ module.exports = (sequelize, DataTypes) => {
         SchoolDocument.belongsTo(models.User, { foreignKey: 'user_id', as: 'uploader' });
         SchoolDocument.belongsTo(models.Department, { foreignKey: 'department_id', as: 'department' });
         SchoolDocument.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
+        SchoolDocument.hasOne(models.WatomsEmployeeDocumentCategory, { foreignKey: 'document_id' });
     };
 
     return SchoolDocument;

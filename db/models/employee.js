@@ -71,7 +71,7 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true,
         updatedAt: false,
     });
-    
+
     Employee.associate = (models) => {
         Employee.belongsTo(models.EmployeeRole, { foreignKey: 'role_id', as: 'role' });
         Employee.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
@@ -84,6 +84,7 @@ module.exports = (sequelize, DataTypes) => {
         Employee.hasOne(models.Teacher, { foreignKey: 'employee_id', as: 'teacher' });
         Employee.hasMany(models.WorkLatness, { foreignKey: 'emp_id', as: 'latness' });
         Employee.hasMany(models.TeacherEvaluation, { foreignKey: 'employee_id', as: 'evaluates' });
+        Employee.hasMany(models.WatomsEmployeeDocumentCategory, { foreignKey: 'employee_id' });
     };
 
     return Employee;

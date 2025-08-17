@@ -497,6 +497,7 @@ const insertTraineeForm = async (req, res) => {
       known_us,
       phone,
       whatsapp,
+      id_number,
       notes
     } = req.body;
 
@@ -504,8 +505,7 @@ const insertTraineeForm = async (req, res) => {
     const required = {
       first_name,
       second_name,
-      third_name,   // ✅ make sure this is required if your schema requires it
-      fourth_name,
+      third_name,
       birth_date,
       vtc,
       gov,
@@ -515,6 +515,7 @@ const insertTraineeForm = async (req, res) => {
       known_us,
       phone,
       whatsapp,
+      id_number
     };
 
     for (const [key, value] of Object.entries(required)) {
@@ -523,23 +524,22 @@ const insertTraineeForm = async (req, res) => {
       }
     }
 
-    const traineeEmail = email || "test@test.com";
-
     const form = await TraineeRegistrationData.create({
       first_name,
       second_name,
-      third_name,   // ✅ same spelling here
+      third_name,
       fourth_name,
       birth_date,
       vtc,
       gov,
       course,
-      email: traineeEmail,
+      email,
       certification,
       school,
       known_us,
       phone,
       whatsapp,
+      id_number,
       notes
     });
 

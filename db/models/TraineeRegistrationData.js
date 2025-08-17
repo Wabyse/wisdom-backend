@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         fourth_name: {
             type: DataTypes.STRING,
-            allowNull: false
+            allowNull: true
         },
         birth_date: {
             type: DataTypes.STRING,
@@ -40,7 +40,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         email: {
             type: DataTypes.STRING,
-            allowNull: false
+            allowNull: true
         },
         certification: {
             type: DataTypes.STRING,
@@ -71,6 +71,18 @@ module.exports = (sequelize, DataTypes) => {
                 isElevenDigits(value) {
                     const v = String(value ?? '').trim();
                     if (!/^\d{11}$/.test(v)) throw new Error('WhatsApp must be exactly 11 digits');
+                }
+            }
+        },
+        id_number: {
+            type: DataTypes.STRING(14), // safer than INTEGER for 14 digits
+            allowNull: false,
+            validate: {
+                isFourteenDigits(value) {
+                    const v = String(value ?? '').trim();
+                    if (!/^\d{14}$/.test(v)) {
+                        throw new Error('ID number must be exactly 14 digits');
+                    }
                 }
             }
         },

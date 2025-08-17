@@ -46,18 +46,6 @@ exports.assignTask = async (req, res) => {
       organization_id
     } = req.body;
 
-    console.log(task,
-      description,
-      start_date,
-      end_date,
-      importance,
-      task_size,
-      sub_category,
-      assignedBy_id,
-      assignee_id,
-      sub_task_id,
-      organization_id)
-
     // Check for missing fields
     if (
       !task ||
@@ -80,6 +68,13 @@ exports.assignTask = async (req, res) => {
       file_path = path.join("uploads", req.file.filename);
     }
 
+    const toIntOrNull = (v) =>
+      v === undefined || v === null || v === '' || String(v).toLowerCase() === 'null'
+        ? null
+        : parseInt(v, 10);
+
+    const toInt = (v) => (v === undefined || v === null ? null : parseInt(v, 10));
+
     // Create task
     const addTask = await Task.create({
       task,
@@ -89,12 +84,12 @@ exports.assignTask = async (req, res) => {
       status: "not started yet",
       importance,
       task_size,
-      sub_category,
-      assignedBy_id,
-      assignee_id,
-      sub_task_id: sub_task_id ? sub_task_id : 1,
-      organization_id,
-      file_path, // Will be null if no file is uploaded
+      sub_category: toInt(sub_category),
+      assignedBy_id: toInt(assignedBy_id),
+      assignee_id: toInt(assignee_id),
+      sub_task_id: toIntOrNull( sub_task_id),
+      organization_id: toInt(organization_id),
+      file_path: file_path ?? null,
     });
 
     res.status(201).json({
@@ -197,6 +192,7 @@ exports.viewTasks = async (req, res) => {
           ]
         }
       ],
+      order: [['createdAt', 'DESC']],
     });
 
     res.status(200).json({
@@ -235,6 +231,92 @@ exports.updateStatus = async (req, res) => {
 };
 
 exports.generalInfo = async (req, res) => {
+  try {
+    const ORG_IDS = [4, 5, 7, 8, 9];
+
+    const includeAssigneeWithOrgFilter = {
+      model: Employee,
+      as: 'assignee',
+      where: {
+        organization_id: ORG_IDS
+      }
+    };
+
+    const countTotalTasks = await Task.count({
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent' },
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    let avgManagerEvaluation = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_evaluation')), 'averageManager']
+      ], raw: true,
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    let avgAssignedByEvaluation = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assigned_by_evaluation')), 'averageAssignedBy']
+      ], raw: true,
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    });
+
+    const avgManager = avgManagerEvaluation.averageMarks ? avgManagerEvaluation.averageMarks : 0;
+    const avgAssignedBy = avgAssignedByEvaluation.averageAssignedBy ? avgAssignedByEvaluation.averageAssignedBy : 0;
+
+    let allStatus = await Task.findAll({
+      attributes: ["status"]
+    }, {
+      include: [includeAssigneeWithOrgFilter]
+    })
+
+    let sumStatus = 0;
+
+    for (let i = 0; i < allStatus.length; i++) {
+      if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
+        sumStatus += 0;
+      } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {
+        sumStatus += 100;
+      } else {
+        sumStatus += Number(allStatus[i].dataValues.status)
+      }
+    }
+
+    const avgStatus = (sumStatus / allStatus.length) * 0.2
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgAssignedBy * 0.5) + Math.round(avgStatus * 100) / 100
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.tasksSummary = async (req, res) => {
   try {
     const ORG_IDS = [4, 5, 7, 8, 9];
 
