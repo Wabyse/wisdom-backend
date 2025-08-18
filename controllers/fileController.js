@@ -21,8 +21,8 @@ exports.uploadFile = async (req, res) => {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
-  const { department_id, organization_id, user_id, sub_category } = req.body;
-  if (!department_id || !organization_id || !user_id || !sub_category) {
+  const { organization_id, user_id, sub_category } = req.body;
+  if (!organization_id || !user_id || !sub_category) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -32,7 +32,6 @@ exports.uploadFile = async (req, res) => {
   try {
     const row = await SchoolDocument.create({
       file_path: storedPath,
-      department_id,
       organization_id,
       user_id,
       sub_category,
@@ -146,12 +145,6 @@ exports.viewFiles = async (req, res) => {
               ],
             },
           ],
-        },
-        {
-          model: Department,
-          as: "department",
-          required: true,
-          attributes: ["id", "Name"],
         },
         {
           model: Organization,

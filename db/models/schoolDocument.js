@@ -28,15 +28,6 @@ module.exports = (sequelize, DataTypes) => {
             },
             onDelete: 'RESTRICT'
         },
-        department_id: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: 'departments',
-                key: 'id',
-            },
-            onDelete: 'RESTRICT'
-        },
         organization_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -63,7 +54,6 @@ module.exports = (sequelize, DataTypes) => {
     SchoolDocument.associate = (models) => {
         SchoolDocument.belongsTo(models.DocSubCategory, { foreignKey: 'sub_category', as: 'documentSubCategory' });
         SchoolDocument.belongsTo(models.User, { foreignKey: 'user_id', as: 'uploader' });
-        SchoolDocument.belongsTo(models.Department, { foreignKey: 'department_id', as: 'department' });
         SchoolDocument.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
         SchoolDocument.hasOne(models.WatomsEmployeeDocumentCategory, { foreignKey: 'document_id' });
     };

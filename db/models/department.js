@@ -26,7 +26,6 @@ module.exports = (sequelize, DataTypes) => {
 
     Department.associate = (models) => {
         Department.hasMany(models.Teacher, { foreignKey: 'department_id', as: 'teachers' });
-        Department.hasMany(models.SchoolDocument, { foreignKey: 'department_id', as: 'documents' });
     };
 
     return Department;

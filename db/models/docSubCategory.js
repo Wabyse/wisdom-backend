@@ -36,6 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     DocSubCategory.associate = (models) => {
         DocSubCategory.belongsTo(models.DocCategory, { foreignKey: 'category', as: 'documentCategory' });
         DocSubCategory.hasMany(models.SchoolDocument, { foreignKey: 'sub_category', as: 'documents' });
+        DocSubCategory.hasMany(models.WatomsWorkshopDocumentSubCategory, { foreignKey: 'sub_category_id', as: 'organizations'  });
     };
 
     return DocSubCategory;
