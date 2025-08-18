@@ -12,5 +12,6 @@ router.get("/open/:filename", fileController.openFile);
 router.post("/send/:filename", fileController.sendFile);
 router.get("/categories", authenticateToken, fileController.viewCategories);
 // router.get("/categories", fileController.viewCategories);
+router.get("/sub-categories/workshops", authenticateToken, fileController.viewWorkshopsRelatedToOrg);
 
 module.exports = router;

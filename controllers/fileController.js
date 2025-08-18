@@ -11,7 +11,9 @@ const {
   Employee,
   EmployeeRole,
   Teacher,
-  Subject
+  Subject,
+  WatomsWorkshopDocumentSubCategory,
+  WatomsEmployeeDocumentCategory
 } = require("../db/models");
 
 // Upload File
@@ -21,13 +23,14 @@ exports.uploadFile = async (req, res) => {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
-  const { organization_id, user_id, sub_category } = req.body;
+  const { organization_id, user_id, sub_category, employee_id } = req.body;
   if (!organization_id || !user_id || !sub_category) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   // Normalize to forward slashes for clients
   const storedPath = req.file.path.replace(/\\/g, "/");
+  let employeeCategory;
 
   try {
     const row = await SchoolDocument.create({
@@ -36,6 +39,13 @@ exports.uploadFile = async (req, res) => {
       user_id,
       sub_category,
     });
+
+    if (employee_id !== "null") {
+      employeeCategory = await WatomsEmployeeDocumentCategory.create({
+        employee_id,
+        document_id: row.id,
+      });
+    }
 
     // Decode originalname in case it’s mojibake
     const decodedOriginal =
@@ -49,7 +59,8 @@ exports.uploadFile = async (req, res) => {
         savedAs: req.file.filename,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        file: row
+        file: row,
+        employeeCategory
       },
     });
   } catch (err) {
@@ -237,6 +248,51 @@ exports.viewCategories = async (req, res) => {
       categories,
     });
   } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.viewWorkshopsRelatedToOrg = async (req, res) => {
+  try {
+    const organizations = await Organization.findAll({
+      attributes: ["id", "name"],
+      include: [
+        {
+          model: WatomsWorkshopDocumentSubCategory,
+          as: "sub_categories",
+          required: true,
+          attributes: ["id"],
+          include: [
+            {
+              model: DocSubCategory,
+              as: "sub_category",
+              attributes: ["id", "name"],
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    const data = organizations.map(org => {
+      const subs = (org.sub_categories ?? [])
+        .map(w => w.sub_category)
+        .filter(Boolean)
+        .map(s => ({ id: s.id, name: s.name }));
+
+      // optional: dedupe by id
+      const uniqueSubs = Array.from(new Map(subs.map(s => [s.id, s])).values());
+
+      return { id: org.id, name: org.name, subCategories: uniqueSubs };
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      organizations: data,
+    });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error", error });
   }
 };
