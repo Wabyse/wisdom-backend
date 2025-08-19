@@ -6,6 +6,7 @@ const { authenticateToken } = require("../middleware/authMiddleware");
 
 router.post("/upload", upload.single("file"), fileController.uploadFile);
 router.get("/download/*", fileController.downloadFile);
+router.get("/download2/:filename(*)", fileController.dmsdownloadFile);
 router.get("/view", authenticateToken, fileController.viewFiles);
 // router.get("/view", fileController.viewFiles);
 router.get("/open/:filename", fileController.openFile);

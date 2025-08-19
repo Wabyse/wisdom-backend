@@ -1,5 +1,6 @@
 const db = require('../db/models');
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
+const { calculateFormScore } = require('../utils/formScore');
 
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
@@ -746,7 +747,7 @@ exports.centerEvaluationBreakdown = async (req, res) => {
 
         // TQBM: Training Regularity, Training Programs, Trainer, Digitization, Quality
         let trainingRegularity = 0, trainingPrograms = 0, trainer = 0, digitization = 0, quality = 0;
-        
+
         // Helper for curriculum_reports/curriculum_results
         async function getCurriculumScoreForCenter(codeLike, organizationId) {
             try {
@@ -920,7 +921,7 @@ exports.centerEvaluationBreakdown = async (req, res) => {
                         return 0;
                     }
                 }
-                
+
                 const reportIds = reports.map(r => r.id);
                 if (!reportIds.length) return 0;
 
@@ -1014,9 +1015,301 @@ exports.centerEvaluationBreakdown = async (req, res) => {
         });
     } catch (error) {
         console.error('Error in centerEvaluationBreakdown:', error);
-        res.status(500).json({ 
-            message: 'Server error', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Server error',
+            error: error.message
+        });
+    }
+};
+
+// New: Evaluation breakdown for a single center (mock for now)
+exports.watomsFormsScore = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+
+        // Related Students Data
+        const students = await db.Student.findAll({
+            attributes: ['user_id'],
+            where: { school_id: id },
+            raw: true
+        });
+        const studentUserIds = students.map(s => s.user_id);
+
+        // Related Employees Data
+        const employees = await db.Employee.findAll({
+            attributes: ['user_id', "organization_id"],
+            raw: true
+        });
+        const employeeUserIds = employees.map(s => s.user_id);
+
+        const usersIds = [...studentUserIds, ...employeeUserIds]
+
+        const relatedEmp = employees.filter(emp => emp.organization_id === id);
+        const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
+
+        // Get all curriculum reports + results
+        const [allCurriculumReports, allCurriculumResults] = await Promise.all([
+            db.CurriculumReport.findAll({
+                attributes: ['id', 'Assessor_id'],
+                where: { organization_id: id },
+                raw: true
+            }),
+            db.CurriculumResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            })
+        ]);
+
+        // Get all individual reports + results
+        const [allIndividualReports, allIndividualResults] = await Promise.all([
+            db.IndividualReport.findAll({
+                attributes: ['id', 'Assessor_id'],
+                where: { Assessee_id: relatedEmpUserIds },
+                raw: true
+            }),
+            db.QuestionResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            })
+        ]);
+
+        // Get all environment reports + results
+        const [allEnvironmentReports, allEnvironmentResults] = await Promise.all([
+            db.EnvironmentReports.findAll({
+                attributes: ['id', 'user_id'],
+                where: { organization_id: id },
+                raw: true
+            }),
+            db.EnvironmentResults.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            })
+        ]);
+
+        // Load forms metadata
+        const [forms, fields, subFields, questions] = await Promise.all([
+            db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
+            db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
+            db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
+            db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
+        ]);
+
+        // Build efficient mapping for form lookup
+        const fieldMap = new Map(fields.map(f => [f.id, f.form_id]));
+        const subFieldMap = new Map(subFields.map(sf => [sf.id, fieldMap.get(sf.field_id)]));
+
+        // TQBM:
+        // البرنامج التدريبي
+        const formsTG = forms.filter(f => f.code.endsWith('| TG'));
+        const formTGIds = formsTG.map(f => f.id);
+
+        // بيئة التدريب
+        const formsTE = forms.filter(f => f.code.endsWith('| TE'));
+        const formTEIds = formsTE.map(f => f.id);
+
+        // اداء المدرب
+        const formsT = forms.filter(f => f.code.endsWith('| T'));
+        const formTIds = formsT.map(f => f.id);
+
+        // GOVBM:
+        // الاداء المؤسسي
+        const formsIP = forms.filter(f => f.code.endsWith('| IP'));
+        const formIPIds = formsIP.map(f => f.id);
+
+        // رقمنة و تخزين البيانات
+        const formsDD = forms.filter(f => f.code.endsWith('| DD'));
+        const formDDIds = formsDD.map(f => f.id);
+
+        // تخطيط و التشغيل
+        const formsPO = forms.filter(f => f.code.endsWith('| PO'));
+        const formPOIds = formsPO.map(f => f.id);
+
+        // جودة و التطوير
+        const formsQD = forms.filter(f => f.code.endsWith('| QD'));
+        const formQDIds = formsQD.map(f => f.id);
+
+        // بيئة العمل
+        const formsW = forms.filter(f => f.code.endsWith('| W'));
+        const formWIds = formsW.map(f => f.id);
+
+        // ACBM:
+        // اداء المتدرب
+        const formsTR = forms.filter(f => f.code.endsWith('| TR'));
+        const formTRIds = formsTR.map(f => f.id);
+
+        // get form_id + max_score from each question
+        const questionTGMap = {};
+        const questionTEMap = {};
+        const questionTMap = {};
+        const questionIPMap = {};
+        const questionDDMap = {};
+        const questionPOMap = {};
+        const questionQDMap = {};
+        const questionWMap = {};
+        const questionTRMap = {};
+        questions.forEach(q => {
+            const formId = subFieldMap.get(q.sub_field_id);
+            if (formTGIds.includes(formId)) {
+                questionTGMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formTEIds.includes(formId)) {
+                questionTEMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formTIds.includes(formId)) {
+                questionTMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formIPIds.includes(formId)) {
+                questionIPMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formDDIds.includes(formId)) {
+                questionDDMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formPOIds.includes(formId)) {
+                questionPOMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formQDIds.includes(formId)) {
+                questionQDMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formWIds.includes(formId)) {
+                questionWMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            } else if (formTRIds.includes(formId)) {
+                questionTRMap[q.id] = {
+                    form_id: formId,
+                    max_score: q.max_score
+                };
+            }
+        });
+
+        // البرنامج التدريبي
+        const allTGScore = await calculateFormScore(
+            usersIds,
+            allCurriculumReports,
+            allCurriculumResults,
+            questionTGMap,
+            formTGIds,
+            formsTG
+        );
+
+        // بيئة التدريب
+        const allTEScore = await calculateFormScore(
+            usersIds,
+            allCurriculumReports,
+            allCurriculumResults,
+            questionTEMap,
+            formTEIds,
+            formsTE
+        );
+
+        // اداء المدرب
+        const allTScore = await calculateFormScore(
+            usersIds,
+            allIndividualReports,
+            allIndividualResults,
+            questionTMap,
+            formTIds,
+            formsT
+        );
+
+        // الاداء الؤسسي
+        const allIPScore = await calculateFormScore(
+            usersIds,
+            allEnvironmentReports,
+            allEnvironmentResults,
+            questionIPMap,
+            formIPIds,
+            formsIP
+        );
+
+        // رقمنة و تخزين البيانات
+        const allDDScore = await calculateFormScore(
+            usersIds,
+            allEnvironmentReports,
+            allEnvironmentResults,
+            questionDDMap,
+            formDDIds,
+            formsDD
+        );
+
+        // تخطيط و التشغيل
+        const allPOScore = await calculateFormScore(
+            usersIds,
+            allEnvironmentReports,
+            allEnvironmentResults,
+            questionPOMap,
+            formPOIds,
+            formsPO
+        );
+
+        // جودة و التطوير
+        const allQDScore = await calculateFormScore(
+            usersIds,
+            allEnvironmentReports,
+            allEnvironmentResults,
+            questionQDMap,
+            formQDIds,
+            formsQD
+        );
+
+        // بيئى العمل
+        const allWScore = await calculateFormScore(
+            usersIds,
+            allEnvironmentReports,
+            allEnvironmentResults,
+            questionWMap,
+            formWIds,
+            formsW
+        );
+
+        // اداء المتدرب
+        const allTRScore = await calculateFormScore(
+            usersIds,
+            allIndividualReports,
+            allIndividualResults,
+            questionTRMap,
+            formTRIds,
+            formsTR
+        );
+
+        res.json({
+            TQBM: {
+                tg: allTGScore,
+                te: allTEScore,
+                t: allTScore,
+            },
+            GOVBM: {
+                ip: allIPScore,
+                dd: allDDScore,
+                po: allPOScore,
+                qd: allQDScore,
+                w: allWScore,
+            },
+            ACBM: {
+                tr: allTRScore,
+                tg: allTGScore,
+            }
+        });
+    } catch (error) {
+        console.error('Error in centerEvaluationBreakdown:', error);
+        res.status(500).json({
+            message: 'Server error',
+            error: error.message
         });
     }
 };
@@ -1620,22 +1913,22 @@ exports.getAnnualPerformanceData = async (req, res) => {
     try {
         const { organizationId } = req.params; // This will be ignored, we'll use all centers
         const db = require('../db/models');
-        
+
         // Check if database is available
         try {
             await db.sequelize.authenticate();
         } catch (dbError) {
             console.log('Database not available, returning mock annual performance data (limited to current month)');
-            
+
             // Only show data up to current month
             const currentMonth = new Date().getMonth(); // 0-11
             const monthsToShow = currentMonth + 1;
-            
+
             const months = [
-                'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه', 
+                'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
                 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
             ];
-            
+
             const allMockData = [
                 { month: 'يناير', monthNumber: 1, performance: 15, color: '#ef4444' },
                 { month: 'فبراير', monthNumber: 2, performance: 25, color: '#ef4444' },
@@ -1650,193 +1943,182 @@ exports.getAnnualPerformanceData = async (req, res) => {
                 { month: 'نوفمبر', monthNumber: 11, performance: 90, color: '#22c55e' },
                 { month: 'ديسمبر', monthNumber: 12, performance: 95, color: '#22c55e' }
             ];
-            
+
             // Only return data up to current month
             const mockData = allMockData.slice(0, monthsToShow);
-            
-            console.log(`🗓️ Annual Performance: Current month index: ${currentMonth} (${months[currentMonth]})`);
-            console.log(`📊 Returning ${mockData.length} months of mock data`);
-            
-            return res.json({ 
-                success: true, 
+
+            return res.json({
+                success: true,
                 data: mockData,
                 year: new Date().getFullYear()
             });
         }
-        
+
         // Get current year
         const currentYear = new Date().getFullYear();
         const months = [
-            'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه', 
+            'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
             'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
         ];
-        
+
         let annualData = [];
-        
+
         // Get ALL active organizations (centers)
-        const allOrgs = await db.Organization.findAll({ 
+        const allOrgs = await db.Organization.findAll({
             where: { deleted: false },
             attributes: ['id', 'name']
         });
-        
+
         if (!allOrgs || allOrgs.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'No organizations found' 
+            return res.status(404).json({
+                success: false,
+                message: 'No organizations found'
             });
         }
-        
-        console.log(`Calculating annual performance for ${allOrgs.length} organizations`);
-        
+
         // Only calculate performance up to current month
         const now = new Date();
         const currentMonth = now.getMonth(); // 0-11
         const monthsToShow = currentMonth + 1;
-        
-        console.log(`🗓️ FULL DATE: ${now.toISOString()}`);
-        console.log(`🗓️ Annual Performance API: Current month index: ${currentMonth} (${months[currentMonth]})`);
-        console.log(`📊 Calculating performance for months 0-${currentMonth} (${monthsToShow} months total)`);
-        console.log(`🔢 Loop will run from 0 to ${monthsToShow - 1}`);
-        
+
         // For each month up to current month, calculate the average performance across ALL centers
         for (let month = 0; month < monthsToShow; month++) {
-            console.log(`🔄 Processing month ${month} (${months[month]})`);
             const startDate = new Date(currentYear, month, 1);
             const endDate = new Date(currentYear, month + 1, 0);
-            
+
             let totalMonthlyPerformance = 0;
             let centersWithData = 0;
-            
+
             // Calculate performance for each organization and then average them
             for (const org of allOrgs) {
                 let orgMonthlyPerformance = 0;
-                
+
                 try {
                     // Get students for this organization
-                    const students = await db.Student.findAll({ 
-                        where: { school_id: org.id, deleted: false }, 
-                        attributes: ['id', 'user_id'] 
+                    const students = await db.Student.findAll({
+                        where: { school_id: org.id, deleted: false },
+                        attributes: ['id', 'user_id']
                     });
                     const studentIds = students.map(s => s.id);
                     const studentUserIds = students.map(s => s.user_id);
-                    
+
                     // Calculate attendance score (40% weight)
                     let attendanceScore = 0;
                     if (studentIds.length > 0) {
                         try {
-                            const totalAttendance = await db.studentAttendance.count({ 
-                                where: { 
-                                    student_id: studentIds, 
+                            const totalAttendance = await db.studentAttendance.count({
+                                where: {
+                                    student_id: studentIds,
                                     deleted: false,
                                     createdAt: {
                                         [Op.between]: [startDate, endDate]
                                     }
-                                } 
+                                }
                             });
-                            const attended = await db.studentAttendance.count({ 
-                                where: { 
-                                    student_id: studentIds, 
-                                    status: 'attend', 
+                            const attended = await db.studentAttendance.count({
+                                where: {
+                                    student_id: studentIds,
+                                    status: 'attend',
                                     deleted: false,
                                     createdAt: {
                                         [Op.between]: [startDate, endDate]
                                     }
-                                } 
+                                }
                             });
                             attendanceScore = totalAttendance > 0 ? (attended / totalAttendance) * 40 : 0;
-                        } catch (e) { 
+                        } catch (e) {
                             console.log(`Attendance calculation error for org ${org.id}:`, e.message);
-                            attendanceScore = 0; 
+                            attendanceScore = 0;
                         }
                     }
-                    
+
                     // Calculate commitment score (20% weight)
                     let commitmentScore = 0;
                     if (studentUserIds.length > 0) {
                         try {
                             // Get individual reports for this month
-                            const reports = await db.IndividualReport.findAll({ 
-                                where: { 
-                                    Assessee_id: studentUserIds, 
+                            const reports = await db.IndividualReport.findAll({
+                                where: {
+                                    Assessee_id: studentUserIds,
                                     deleted: false,
                                     createdAt: {
                                         [Op.between]: [startDate, endDate]
                                     }
-                                }, 
-                                attributes: ['id'] 
+                                },
+                                attributes: ['id']
                             });
-                            
+
                             if (reports.length > 0) {
                                 const reportIds = reports.map(r => r.id);
-                                const questionResults = await db.QuestionResult.findAll({ 
-                                    where: { 
-                                        report_id: reportIds, 
-                                        deleted: false 
-                                    }, 
-                                    attributes: ['score', 'question_id'] 
+                                const questionResults = await db.QuestionResult.findAll({
+                                    where: {
+                                        report_id: reportIds,
+                                        deleted: false
+                                    },
+                                    attributes: ['score', 'question_id']
                                 });
-                                
+
                                 if (questionResults.length > 0) {
                                     const totalScore = questionResults.reduce((sum, qr) => sum + (qr.score || 0), 0);
                                     const totalMax = questionResults.length * 5; // Assuming max score of 5
                                     commitmentScore = totalMax > 0 ? (totalScore / totalMax) * 20 : 0;
                                 }
                             }
-                        } catch (e) { 
+                        } catch (e) {
                             console.log(`Commitment calculation error for org ${org.id}:`, e.message);
-                            commitmentScore = 0; 
+                            commitmentScore = 0;
                         }
                     }
-                    
+
                     // Calculate project/quiz scores (40% weight)
                     let projectScore = 0;
                     if (studentIds.length > 0) {
                         try {
-                            const quizTests = await db.QuizTest.findAll({ 
-                                where: { 
-                                    student_id: studentIds, 
+                            const quizTests = await db.QuizTest.findAll({
+                                where: {
+                                    student_id: studentIds,
                                     deleted: false,
                                     createdAt: {
                                         [Op.between]: [startDate, endDate]
                                     }
-                                }, 
-                                attributes: ['result'] 
+                                },
+                                attributes: ['result']
                             });
-                            
+
                             if (quizTests.length > 0) {
                                 const totalScore = quizTests.reduce((sum, qt) => sum + (qt.result || 0), 0);
                                 projectScore = (totalScore / quizTests.length) * 40;
                             }
-                        } catch (e) { 
+                        } catch (e) {
                             console.log(`Project calculation error for org ${org.id}:`, e.message);
-                            projectScore = 0; 
+                            projectScore = 0;
                         }
                     }
-                    
+
                     // Calculate total monthly performance for this organization
                     orgMonthlyPerformance = Math.round(attendanceScore + commitmentScore + projectScore);
-                    
+
                     // Ensure performance is within 0-100 range
                     orgMonthlyPerformance = Math.max(0, Math.min(100, orgMonthlyPerformance));
-                    
+
                     // Add to total if this org has any data
                     if (orgMonthlyPerformance > 0 || attendanceScore > 0 || commitmentScore > 0 || projectScore > 0) {
                         totalMonthlyPerformance += orgMonthlyPerformance;
                         centersWithData++;
                     }
-                    
+
                 } catch (e) {
                     console.log(`Monthly calculation error for org ${org.id}:`, e.message);
                     // Don't count this org in the average if there's an error
                 }
             }
-            
+
             // Calculate average performance for this month across all centers
             let monthlyPerformance = 0;
             if (centersWithData > 0) {
                 monthlyPerformance = Math.round(totalMonthlyPerformance / centersWithData);
             }
-            
+
             // Determine color based on performance
             let color = '#ef4444'; // red for low performance
             if (monthlyPerformance >= 70) {
@@ -1844,7 +2126,7 @@ exports.getAnnualPerformanceData = async (req, res) => {
             } else if (monthlyPerformance >= 40) {
                 color = '#f59e0b'; // yellow for medium performance
             }
-            
+
             annualData.push({
                 month: months[month],
                 monthNumber: month + 1,
@@ -1852,12 +2134,9 @@ exports.getAnnualPerformanceData = async (req, res) => {
                 color: color
             });
         }
-        
-        console.log('Annual performance data generated for all centers:', annualData);
-        
+
         // If no real data was found, generate some fallback data for demonstration
         if (annualData.every(item => item.performance === 0)) {
-            console.log('No real data found, generating fallback data');
             const fallbackData = [
                 { month: 1, performance: 15, color: '#ef4444' },
                 { month: 2, performance: 25, color: '#ef4444' },
@@ -1872,7 +2151,7 @@ exports.getAnnualPerformanceData = async (req, res) => {
                 { month: 11, performance: 90, color: '#22c55e' },
                 { month: 12, performance: 95, color: '#22c55e' }
             ];
-            
+
             annualData = fallbackData.map((item, index) => ({
                 month: months[index],
                 monthNumber: item.month,
@@ -1880,21 +2159,19 @@ exports.getAnnualPerformanceData = async (req, res) => {
                 color: item.color
             }));
         }
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             data: annualData,
             year: currentYear
         });
-        
-        console.log(`📤 Annual Performance API returning ${annualData.length} months:`, annualData.map(item => item.month));
-        
+
     } catch (error) {
         console.error('Error getting annual performance data:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error', 
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
         });
     }
 };
@@ -1904,11 +2181,10 @@ exports.getProjectUnitsRanking = async (req, res) => {
     try {
         const { organizationId } = req.params;
         const db = require('../db/models');
-        
+
         // Check if database is available
         try {
             await db.sequelize.authenticate();
-            console.log(`Database authenticated successfully for organization ${organizationId}`);
         } catch (dbError) {
             console.error(`Database connection error for organization ${organizationId}:`, dbError);
             // Still try to proceed with database queries, as authentication might fail but queries could work
@@ -1923,13 +2199,10 @@ exports.getProjectUnitsRanking = async (req, res) => {
 
         try {
             // Get statistics
-            console.log(`📊 Fetching real statistics for organization ${organizationId}...`);
             const students = await db.Student.count({ where: { school_id: organizationId, deleted: false } });
             const employees = await db.Employee.count({ where: { organization_id: organizationId, deleted: false } });
             const teachers = await db.Teacher.count({ where: { organization_id: organizationId, deleted: false } });
-            
-            console.log(`✅ Real counts: students=${students}, employees=${employees}, teachers=${teachers}`);
-            
+
             // Get employee roles for more detailed statistics
             const employeeRoles = await db.EmployeeRole.findAll({
                 include: [{
@@ -1949,9 +2222,7 @@ exports.getProjectUnitsRanking = async (req, res) => {
             const specializations = await db.Specialization.count({ where: { deleted: false } }) || Math.max(1, Math.floor(teachers / 3));
             const departments = await db.Department.count({ where: { organization_id: organizationId, deleted: false } }) || Math.max(1, Math.floor(employees / 10));
             const subjects = await db.Subject.count({ where: { deleted: false } }) || Math.max(1, Math.floor(teachers / 2));
-            
-            console.log(`📚 Additional real data: specializations=${specializations}, departments=${departments}, subjects=${subjects}`);
-            
+
             statistics = {
                 students: students,
                 trainers: teachers,
@@ -1963,8 +2234,6 @@ exports.getProjectUnitsRanking = async (req, res) => {
                 labs: Math.max(1, Math.floor(departments * 0.7)) || Math.max(1, Math.floor(students / 35)),
                 specializations: specializations
             };
-            
-            console.log(`📋 Final statistics:`, statistics);
 
             // Calculate global standards based on existing evaluation data
             const currentYear = new Date().getFullYear();
@@ -1972,9 +2241,9 @@ exports.getProjectUnitsRanking = async (req, res) => {
             const endOfYear = new Date(currentYear, 11, 31);
 
             // Get students for this organization
-            const orgStudents = await db.Student.findAll({ 
-                where: { school_id: organizationId, deleted: false }, 
-                attributes: ['id', 'user_id'] 
+            const orgStudents = await db.Student.findAll({
+                where: { school_id: organizationId, deleted: false },
+                attributes: ['id', 'user_id']
             });
             const studentIds = orgStudents.map(s => s.id);
             const studentUserIds = orgStudents.map(s => s.user_id);
@@ -1982,45 +2251,45 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Calculate ODBM (attendance + commitment)
             let attendanceScore = 0;
             let commitmentScore = 0;
-            
+
             if (studentIds.length > 0) {
-                const totalAttendance = await db.studentAttendance.count({ 
-                    where: { 
-                        student_id: studentIds, 
+                const totalAttendance = await db.studentAttendance.count({
+                    where: {
+                        student_id: studentIds,
                         deleted: false,
                         createdAt: { [db.Sequelize.Op.between]: [startOfYear, endOfYear] }
-                    } 
+                    }
                 });
-                const attended = await db.studentAttendance.count({ 
-                    where: { 
-                        student_id: studentIds, 
-                        status: 'attend', 
+                const attended = await db.studentAttendance.count({
+                    where: {
+                        student_id: studentIds,
+                        status: 'attend',
                         deleted: false,
                         createdAt: { [db.Sequelize.Op.between]: [startOfYear, endOfYear] }
-                    } 
+                    }
                 });
                 attendanceScore = totalAttendance > 0 ? (attended / totalAttendance) * 100 : 0;
 
                 // Calculate commitment from individual reports
-                const reports = await db.IndividualReport.findAll({ 
-                    where: { 
-                        Assessee_id: studentUserIds, 
+                const reports = await db.IndividualReport.findAll({
+                    where: {
+                        Assessee_id: studentUserIds,
                         deleted: false,
                         createdAt: { [db.Sequelize.Op.between]: [startOfYear, endOfYear] }
-                    }, 
-                    attributes: ['id'] 
+                    },
+                    attributes: ['id']
                 });
-                
+
                 if (reports.length > 0) {
                     const reportIds = reports.map(r => r.id);
-                    const questionResults = await db.QuestionResult.findAll({ 
-                        where: { 
-                            report_id: reportIds, 
-                            deleted: false 
-                        }, 
-                        attributes: ['score', 'question_id'] 
+                    const questionResults = await db.QuestionResult.findAll({
+                        where: {
+                            report_id: reportIds,
+                            deleted: false
+                        },
+                        attributes: ['score', 'question_id']
                     });
-                    
+
                     if (questionResults.length > 0) {
                         const totalScore = questionResults.reduce((sum, qr) => sum + (qr.score || 0), 0);
                         const totalMax = questionResults.length * 5; // Assuming max score of 5
@@ -2032,27 +2301,27 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Calculate APBM (project + formative)
             let projectScore = 0;
             let formativeScore = 0;
-            
+
             if (studentIds.length > 0) {
-                const quizTests = await db.QuizTest.findAll({ 
-                    where: { 
-                        student_id: studentIds, 
+                const quizTests = await db.QuizTest.findAll({
+                    where: {
+                        student_id: studentIds,
                         deleted: false,
                         createdAt: { [db.Sequelize.Op.between]: [startOfYear, endOfYear] }
-                    }, 
+                    },
                     attributes: ['result', 'template_id'],
                     include: [{ model: db.QuizzesTestsTemplate, attributes: ['type'] }]
                 });
-                
+
                 if (quizTests.length > 0) {
                     const tests = quizTests.filter(qt => qt.QuizzesTestsTemplate.type === 'test');
                     const quizzes = quizTests.filter(qt => qt.QuizzesTestsTemplate.type === 'quiz');
-                    
+
                     if (tests.length > 0) {
                         const testSum = tests.reduce((sum, t) => sum + (t.result || 0), 0);
                         projectScore = testSum / tests.length;
                     }
-                    
+
                     if (quizzes.length > 0) {
                         const quizSum = quizzes.reduce((sum, q) => sum + (q.result || 0), 0);
                         formativeScore = quizSum / quizzes.length;
@@ -2069,25 +2338,24 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Calculate Community and Institutional scores
             let communityScore = 0;
             let institutionalScore = 0;
-            
+
             // These would typically come from environment reports
             // For now, using simplified calculations
             communityScore = Math.min(100, attendanceScore * 0.6 + commitmentScore * 0.4);
             institutionalScore = Math.min(100, (attendanceScore + commitmentScore + projectScore + formativeScore) / 4 * 1.1);
 
             // 🎯 REAL GLOBAL STANDARDS WITH ARABIC DETAIL NAMES
-            console.log(`🏆 Building global standards with real Arabic detail names...`);
-            
+
             globalStandards = {
-                "ODBM": { 
-                    value: Math.round((attendanceScore + commitmentScore) / 2), 
+                "ODBM": {
+                    value: Math.round((attendanceScore + commitmentScore) / 2),
                     color: attendanceScore >= 70 ? '#22c55e' : attendanceScore >= 40 ? '#f59e0b' : '#ef4444',
                     nameEn: "ODBM",
                     nameAr: "ODBM",
                     details: {
                         attendance: {
                             value: Math.round(attendanceScore),
-                            nameEn: "Attendance & Presence", 
+                            nameEn: "Attendance & Presence",
                             nameAr: "الحضور والغياب"
                         },
                         commitment: {
@@ -2107,8 +2375,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 },
-                "APBM": { 
-                    value: Math.round((projectScore + formativeScore) / 2), 
+                "APBM": {
+                    value: Math.round((projectScore + formativeScore) / 2),
                     color: projectScore >= 70 ? '#22c55e' : projectScore >= 40 ? '#f59e0b' : '#ef4444',
                     nameEn: "APBM",
                     nameAr: "APBM",
@@ -2135,8 +2403,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 },
-                "TQBM": { 
-                    value: Math.round(trainingQualityScore), 
+                "TQBM": {
+                    value: Math.round(trainingQualityScore),
                     color: trainingQualityScore >= 70 ? '#22c55e' : trainingQualityScore >= 40 ? '#f59e0b' : '#ef4444',
                     nameEn: "TQBM",
                     nameAr: "TQBM",
@@ -2163,8 +2431,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 },
-                "Community": { 
-                    value: Math.round(communityScore), 
+                "Community": {
+                    value: Math.round(communityScore),
                     color: communityScore >= 70 ? '#22c55e' : communityScore >= 40 ? '#f59e0b' : '#ef4444',
                     nameEn: "Community",
                     nameAr: "Community",
@@ -2191,8 +2459,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 },
-                "Institutional": { 
-                    value: Math.round(institutionalScore), 
+                "Institutional": {
+                    value: Math.round(institutionalScore),
                     color: institutionalScore >= 70 ? '#22c55e' : institutionalScore >= 40 ? '#f59e0b' : '#ef4444',
                     nameEn: "Institutional",
                     nameAr: "Institutional",
@@ -2220,77 +2488,72 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     }
                 }
             };
-            
-            console.log(`✅ Global standards built with real data:`);
-            Object.entries(globalStandards).forEach(([key, value]) => {
-                console.log(`   ${key}: ${value.value}%`);
-                Object.entries(value.details).forEach(([detailKey, detailObj]) => {
-                    console.log(`     - ${detailObj.nameEn} / ${detailObj.nameAr}: ${detailObj.value}%`);
-                });
-            });
+
+            // Object.entries(globalStandards).forEach(([key, value]) => {
+            //     console.log(`   ${key}: ${value.value}%`);
+            //     Object.entries(value.details).forEach(([detailKey, detailObj]) => {
+            //         console.log(`     - ${detailObj.nameEn} / ${detailObj.nameAr}: ${detailObj.value}%`);
+            //     });
+            // });
 
             // Generate annual performance data
             const months = [
-                'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه', 
+                'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
                 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
             ];
-            
+
             // Only show data up to current month
             const currentMonth = new Date().getMonth(); // 0-11 (0 = January)
             const monthsToShow = currentMonth + 1; // Include current month
-            
-            console.log(`🗓️ Current date: ${new Date().toISOString()}`);
-            console.log(`📅 Current month index: ${currentMonth} (${months[currentMonth]})`);
-            console.log(`📊 Generating performance data for months 0-${currentMonth} (${monthsToShow} months total)`);
-            
+
             for (let month = 0; month < monthsToShow; month++) {
                 const startDate = new Date(currentYear, month, 1);
                 const endDate = new Date(currentYear, month + 1, 0);
-                
+
                 let monthlyPerformance = 0;
-                
+
                 try {
                     // Calculate monthly performance similar to annual performance function
                     if (studentIds.length > 0) {
                         // Attendance calculation
-                        const monthlyAttendance = await db.studentAttendance.count({ 
-                            where: { 
-                                student_id: studentIds, 
+                        const monthlyAttendance = await db.studentAttendance.count({
+                            where: {
+                                student_id: studentIds,
                                 deleted: false,
                                 createdAt: { [db.Sequelize.Op.between]: [startDate, endDate] }
-                            } 
+                            }
                         });
-                        const monthlyAttended = await db.studentAttendance.count({ 
-                            where: { 
-                                student_id: studentIds, 
-                                status: 'attend', 
+                        const monthlyAttended = await db.studentAttendance.count({
+                            where: {
+                                student_id: studentIds,
+                                status: 'attend',
                                 deleted: false,
                                 createdAt: { [db.Sequelize.Op.between]: [startDate, endDate] }
-                            } 
+                            }
                         });
                         const attendanceScore = monthlyAttendance > 0 ? (monthlyAttended / monthlyAttendance) * 40 : 0;
 
                         // Commitment calculation
-                        const monthlyReports = await db.IndividualReport.findAll({ 
-                            where: { 
-                                Assessee_id: studentUserIds, 
+                        const monthlyReports = await db.IndividualReport.findAll({
+                            where: {
+                                Assessee_id: studentUserIds,
                                 deleted: false,
                                 createdAt: { [db.Sequelize.Op.between]: [startDate, endDate] }
-                            }, 
-                            attributes: ['id'] 
+                            },
+                            attributes: ['id']
                         });
-                        
+
                         let commitmentScore = 0;
                         if (monthlyReports.length > 0) {
                             const reportIds = monthlyReports.map(r => r.id);
-                            const questionResults = await db.QuestionResult.findAll({ 
-                                where: { 
-                                    report_id: reportIds, 
-                                    deleted: false 
-                                }, 
-                                attributes: ['score', 'question_id'] 
+                            const questionResults = await db.QuestionResult.findAll({
+                                where: {
+                                    report_id: reportIds,
+                                    deleted: false
+                                },
+                                attributes: ['score', 'question_id']
                             });
-                            
+
                             if (questionResults.length > 0) {
                                 const totalScore = questionResults.reduce((sum, qr) => sum + (qr.score || 0), 0);
                                 const totalMax = questionResults.length * 5;
@@ -2299,21 +2562,21 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
 
                         // Project/Quiz calculation
-                        const monthlyQuizTests = await db.QuizTest.findAll({ 
-                            where: { 
-                                student_id: studentIds, 
+                        const monthlyQuizTests = await db.QuizTest.findAll({
+                            where: {
+                                student_id: studentIds,
                                 deleted: false,
                                 createdAt: { [db.Sequelize.Op.between]: [startDate, endDate] }
-                            }, 
-                            attributes: ['result'] 
+                            },
+                            attributes: ['result']
                         });
-                        
+
                         let projectScore = 0;
                         if (monthlyQuizTests.length > 0) {
                             const totalScore = monthlyQuizTests.reduce((sum, qt) => sum + (qt.result || 0), 0);
                             projectScore = (totalScore / monthlyQuizTests.length) * 40;
                         }
-                        
+
                         monthlyPerformance = Math.round(attendanceScore + commitmentScore + projectScore);
                         monthlyPerformance = Math.max(0, Math.min(100, monthlyPerformance));
                     }
@@ -2321,14 +2584,14 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     console.log('Monthly calculation error:', e.message);
                     monthlyPerformance = 0;
                 }
-                
+
                 let color = '#ef4444'; // red for low performance
                 if (monthlyPerformance >= 70) {
                     color = '#22c55e'; // green for high performance
                 } else if (monthlyPerformance >= 40) {
                     color = '#f59e0b'; // yellow for medium performance
                 }
-                
+
                 annualPerformance.push({
                     month: months[month],
                     performance: monthlyPerformance,
@@ -2348,28 +2611,16 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Calculate overall score
             const scores = Object.values(performanceStandards);
             overallScore = Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
-            
-            console.log(`🎯 Calculated performance scores:`);
-            console.log(`   - Attendance: ${Math.round(attendanceScore)}%`);
-            console.log(`   - Commitment: ${Math.round(commitmentScore)}%`);
-            console.log(`   - Project: ${Math.round(projectScore)}%`);
-            console.log(`   - Formative: ${Math.round(formativeScore)}%`);
-            console.log(`   - Training Quality: ${Math.round(trainingQualityScore)}%`);
-            console.log(`   - Community: ${Math.round(communityScore)}%`);
-            console.log(`   - Institutional: ${Math.round(institutionalScore)}%`);
-            console.log(`   - Overall: ${overallScore}%`);
 
         } catch (e) {
             console.log(`Error calculating ranking data for organization ${organizationId}:`, e.message);
-            
+
             // Try to get at least basic counts even if complex calculations fail
             try {
                 const students = await db.Student.count({ where: { school_id: organizationId, deleted: false } }) || 0;
                 const teachers = await db.Teacher.count({ where: { organization_id: organizationId, deleted: false } }) || 0;
                 const employees = await db.Employee.count({ where: { organization_id: organizationId, deleted: false } }) || 0;
-                
-                console.log(`Basic counts for org ${organizationId}: students=${students}, teachers=${teachers}, employees=${employees}`);
-                
+
                 statistics = {
                     students: students,
                     trainers: teachers,
@@ -2381,16 +2632,14 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     labs: Math.max(1, Math.floor(students / 30) || 3),
                     specializations: Math.max(1, Math.floor(teachers / 3) || 5)
                 };
-                
+
                 // Calculate performance based on real student/teacher ratios
                 const studentTeacherRatio = students > 0 && teachers > 0 ? students / teachers : 15;
                 const basePerformance = Math.max(20, Math.min(95, 100 - (studentTeacherRatio - 10) * 3));
-                
-                console.log(`Calculated base performance for org ${organizationId}: ${basePerformance} (ratio: ${studentTeacherRatio})`);
-                
+
                 globalStandards = {
-                    "ODBM": { 
-                        value: Math.round(basePerformance * 0.9), 
+                    "ODBM": {
+                        value: Math.round(basePerformance * 0.9),
                         color: basePerformance >= 70 ? '#22c55e' : basePerformance >= 40 ? '#f59e0b' : '#ef4444',
                         nameEn: "ODBM",
                         nameAr: "ODBM",
@@ -2402,7 +2651,7 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             },
                             commitment: {
                                 value: Math.round(basePerformance * 0.95),
-                                nameEn: "Commitment & Discipline", 
+                                nameEn: "Commitment & Discipline",
                                 nameAr: "الالتزام والانضباط"
                             },
                             behavior: {
@@ -2417,8 +2666,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             }
                         }
                     },
-                    "APBM": { 
-                        value: Math.round(basePerformance * 0.85), 
+                    "APBM": {
+                        value: Math.round(basePerformance * 0.85),
                         color: basePerformance >= 70 ? '#22c55e' : basePerformance >= 40 ? '#f59e0b' : '#ef4444',
                         nameEn: "APBM",
                         nameAr: "APBM",
@@ -2445,8 +2694,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             }
                         }
                     },
-                    "TQBM - جودة التدريب والأعمال": { 
-                        value: Math.round(Math.min(100, basePerformance * 1.1)), 
+                    "TQBM - جودة التدريب والأعمال": {
+                        value: Math.round(Math.min(100, basePerformance * 1.1)),
                         color: basePerformance >= 70 ? '#22c55e' : basePerformance >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "جودة التدريب": Math.round(basePerformance * 1.0),
@@ -2455,8 +2704,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "الفعالية والتأثير": Math.round(basePerformance * 1.05)
                         }
                     },
-                    "Community - المشاركة المجتمعية": { 
-                        value: Math.round(basePerformance * 0.8), 
+                    "Community - المشاركة المجتمعية": {
+                        value: Math.round(basePerformance * 0.8),
                         color: basePerformance >= 70 ? '#22c55e' : basePerformance >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "التفاعل المجتمعي": Math.round(basePerformance * 0.65),
@@ -2465,8 +2714,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "التأثير المجتمعي": Math.round(basePerformance * 0.75)
                         }
                     },
-                    "Institutional - التميز المؤسسي": { 
-                        value: Math.round(basePerformance), 
+                    "Institutional - التميز المؤسسي": {
+                        value: Math.round(basePerformance),
                         color: basePerformance >= 70 ? '#22c55e' : basePerformance >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "الحوكمة المؤسسية": Math.round(basePerformance * 0.95),
@@ -2476,22 +2725,22 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 };
-                
+
                 // Generate more realistic annual performance data (only up to current month)
                 const currentMonth = new Date().getMonth();
                 const monthsToShow = currentMonth + 1;
                 const allMonths = [
-                    'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه', 
+                    'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
                     'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
                 ];
-                
+
                 annualPerformance = allMonths.slice(0, monthsToShow).map((month, index) => {
                     const variation = Math.sin(index / 2) * 15 + (Math.random() * 10 - 5);
                     const performance = Math.max(0, Math.min(100, Math.round(basePerformance + variation)));
                     const color = performance >= 70 ? '#22c55e' : performance >= 40 ? '#f59e0b' : '#ef4444';
                     return { month, performance, color };
                 });
-                
+
                 performanceStandards = {
                     ODBM: Math.round(basePerformance * 0.9),
                     APBM: Math.round(basePerformance * 0.85),
@@ -2499,20 +2748,16 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     Institutional: Math.round(basePerformance),
                     Community: Math.round(basePerformance * 0.8)
                 };
-                
+
                 overallScore = Math.round(basePerformance);
-                
-                console.log(`Generated realistic data for organization ${organizationId} based on real database counts`);
-                
+
             } catch (fallbackError) {
                 console.error(`Even basic database queries failed for organization ${organizationId}:`, fallbackError);
-                
+
                 // Last resort: organization-specific mock data that varies by orgId
                 const orgNumber = parseInt(organizationId) || 1;
                 const baseValue = 40 + (orgNumber * 7) % 45; // Range 40-85
-                
-                console.log(`Using organization-specific mock data for org ${organizationId} with base value ${baseValue}`);
-                
+
                 statistics = {
                     students: 20 + (orgNumber * 8) % 60,
                     trainers: 5 + (orgNumber * 2) % 15,
@@ -2524,10 +2769,10 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     labs: 1 + (orgNumber) % 5,
                     specializations: 2 + (orgNumber) % 8
                 };
-                
+
                 globalStandards = {
-                    "ODBM - إدارة التطوير والسلوك": { 
-                        value: Math.round(baseValue + (orgNumber % 3) * 5), 
+                    "ODBM - إدارة التطوير والسلوك": {
+                        value: Math.round(baseValue + (orgNumber % 3) * 5),
                         color: baseValue >= 65 ? '#22c55e' : baseValue >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "الحضور والغياب": Math.round(baseValue + (orgNumber % 2) * 4),
@@ -2536,8 +2781,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "المشاركة والتفاعل": Math.round(baseValue + (orgNumber % 5) * 4)
                         }
                     },
-                    "APBM - الأداء الأكاديمي والإداري": { 
-                        value: Math.round(baseValue + (orgNumber % 4) * 3), 
+                    "APBM - الأداء الأكاديمي والإداري": {
+                        value: Math.round(baseValue + (orgNumber % 4) * 3),
                         color: baseValue >= 65 ? '#22c55e' : baseValue >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "الأداء الأكاديمي": Math.round(baseValue + (orgNumber % 3) * 5),
@@ -2546,8 +2791,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "الإدارة التنفيذية": Math.round(baseValue + (orgNumber % 5) * 3)
                         }
                     },
-                    "TQBM - جودة التدريب والأعمال": { 
-                        value: Math.round(baseValue + (orgNumber % 5) * 4), 
+                    "TQBM - جودة التدريب والأعمال": {
+                        value: Math.round(baseValue + (orgNumber % 5) * 4),
                         color: baseValue >= 65 ? '#22c55e' : baseValue >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "جودة التدريب": Math.round(baseValue + (orgNumber % 2) * 6),
@@ -2556,8 +2801,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "الفعالية والتأثير": Math.round(baseValue + (orgNumber % 6) * 4)
                         }
                     },
-                    "Community - المشاركة المجتمعية": { 
-                        value: Math.round(baseValue + (orgNumber % 2) * 10 - 5), 
+                    "Community - المشاركة المجتمعية": {
+                        value: Math.round(baseValue + (orgNumber % 2) * 10 - 5),
                         color: baseValue >= 70 ? '#22c55e' : baseValue >= 45 ? '#f59e0b' : '#ef4444',
                         details: {
                             "التفاعل المجتمعي": Math.round(baseValue + (orgNumber % 3) * 4 - 8),
@@ -2566,8 +2811,8 @@ exports.getProjectUnitsRanking = async (req, res) => {
                             "التأثير المجتمعي": Math.round(baseValue + (orgNumber % 5) * 3 - 6)
                         }
                     },
-                    "Institutional - التميز المؤسسي": { 
-                        value: Math.round(baseValue + (orgNumber % 6) * 2), 
+                    "Institutional - التميز المؤسسي": {
+                        value: Math.round(baseValue + (orgNumber % 6) * 2),
                         color: baseValue >= 65 ? '#22c55e' : baseValue >= 40 ? '#f59e0b' : '#ef4444',
                         details: {
                             "الحوكمة المؤسسية": Math.round(baseValue + (orgNumber % 2) * 3),
@@ -2577,21 +2822,21 @@ exports.getProjectUnitsRanking = async (req, res) => {
                         }
                     }
                 };
-                
+
                 // Only show data up to current month for last resort fallback too
                 const currentMonth = new Date().getMonth();
                 const monthsToShow = currentMonth + 1;
                 const allMonths = [
-                    'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه', 
+                    'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
                     'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
                 ];
-                
+
                 annualPerformance = allMonths.slice(0, monthsToShow).map((month, index) => {
                     const performance = Math.max(0, Math.min(100, baseValue + ((orgNumber + index) % 25) - 12));
                     const color = performance >= 70 ? '#22c55e' : performance >= 40 ? '#f59e0b' : '#ef4444';
                     return { month, performance, color };
                 });
-                
+
                 performanceStandards = {
                     ODBM: Math.round(baseValue + (orgNumber % 3) * 5),
                     APBM: Math.round(baseValue + (orgNumber % 4) * 3),
@@ -2599,13 +2844,11 @@ exports.getProjectUnitsRanking = async (req, res) => {
                     Institutional: Math.round(baseValue + (orgNumber % 6) * 2),
                     Community: Math.round(baseValue + (orgNumber % 2) * 10 - 5)
                 };
-                
+
                 overallScore = Math.round(baseValue + (orgNumber % 7) * 3);
             }
         }
 
-        console.log(`📤 Returning data with ${annualPerformance.length} months:`, annualPerformance.map(item => item.month));
-        
         res.json({
             success: true,
             data: {
@@ -2619,10 +2862,10 @@ exports.getProjectUnitsRanking = async (req, res) => {
 
     } catch (error) {
         console.error('Error getting project units ranking:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server error', 
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
         });
     }
 };

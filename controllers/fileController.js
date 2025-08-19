@@ -16,6 +16,9 @@ const {
   WatomsEmployeeDocumentCategory
 } = require("../db/models");
 
+// Always point one level up from "controllers"
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+
 // Upload File
 // controllers/fileController.js
 exports.uploadFile = async (req, res) => {
@@ -83,6 +86,24 @@ exports.downloadFile = (req, res) => {
   }
 
   res.download(filePath, (err) => {
+    if (err) {
+      console.error("Download error:", err);
+      res.status(500).json({ error: "File download failed" });
+    }
+  });
+};
+
+exports.dmsdownloadFile = (req, res) => {
+  const filename = decodeURIComponent(req.params.filename);
+
+  const filePath = path.join(UPLOAD_DIR, filename);
+
+  if (!fs.existsSync(filePath)) {
+    console.error("File not found:", filePath);
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  res.download(filePath, filename, (err) => {
     if (err) {
       console.error("Download error:", err);
       res.status(500).json({ error: "File download failed" });

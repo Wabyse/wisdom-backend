@@ -216,8 +216,6 @@ exports.PointRequestStatus = async (req, res) => {
             lock: transaction.LOCK.UPDATE,
           });
 
-          console.log(adminRole);
-
           if (!adminRole) {
             throw new Error("Admin user not found");
           }
