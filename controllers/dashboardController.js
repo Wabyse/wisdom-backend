@@ -1025,288 +1025,219 @@ exports.centerEvaluationBreakdown = async (req, res) => {
 // New: Evaluation breakdown for a single center (mock for now)
 exports.watomsFormsScore = async (req, res) => {
     try {
-        const id = Number(req.params.id);
+        const staticIds = [4, 5, 7, 8, 9]; // ✅ Add your static organization/school IDs here
+        const results = [];
 
-        // Related Students Data
-        const students = await db.Student.findAll({
-            attributes: ['user_id'],
-            where: { school_id: id },
-            raw: true
-        });
-        const studentUserIds = students.map(s => s.user_id);
+        for (const id of staticIds) {
 
-        // Related Employees Data
-        const employees = await db.Employee.findAll({
-            attributes: ['user_id', "organization_id"],
-            raw: true
-        });
-        const employeeUserIds = employees.map(s => s.user_id);
-
-        const usersIds = [...studentUserIds, ...employeeUserIds]
-
-        const relatedEmp = employees.filter(emp => emp.organization_id === id);
-        const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
-
-        // Get all curriculum reports + results
-        const [allCurriculumReports, allCurriculumResults] = await Promise.all([
-            db.CurriculumReport.findAll({
-                attributes: ['id', 'Assessor_id'],
-                where: { organization_id: id },
-                raw: true
-            }),
-            db.CurriculumResult.findAll({
-                attributes: ['report_id', 'question_id', 'score'],
-                raw: true
-            })
-        ]);
-
-        // Get all individual reports + results
-        const [allIndividualReports, allIndividualResults] = await Promise.all([
-            db.IndividualReport.findAll({
-                attributes: ['id', 'Assessor_id'],
-                where: { Assessee_id: relatedEmpUserIds },
-                raw: true
-            }),
-            db.QuestionResult.findAll({
-                attributes: ['report_id', 'question_id', 'score'],
-                raw: true
-            })
-        ]);
-
-        // Get all environment reports + results
-        const [allEnvironmentReports, allEnvironmentResults] = await Promise.all([
-            db.EnvironmentReports.findAll({
+            const students = await db.Student.findAll({
                 attributes: ['id', 'user_id'],
-                where: { organization_id: id },
+                where: { school_id: id },
                 raw: true
-            }),
-            db.EnvironmentResults.findAll({
-                attributes: ['report_id', 'question_id', 'score'],
+            });
+            const studentIds = students.map(s => s.id);
+            const studentUserIds = students.map(s => s.user_id);
+
+            const employees = await db.Employee.findAll({
+                attributes: ['id', 'user_id', "organization_id"],
                 raw: true
+            });
+            const employeeUserIds = employees.map(s => s.user_id);
+
+            const usersIds = [...studentUserIds, ...employeeUserIds];
+
+            const relatedEmp = employees.filter(emp => emp.organization_id === id);
+            const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
+            const relatedEmpIds = relatedEmp.map(s => s.id);
+
+            const teachers = await db.Teacher.findAll({
+                attributes: ['id'],
+                where: { employee_id: relatedEmpIds },
+                raw: true
+            });
+            const teachersIds = teachers.map(s => s.id);
+
+            const [allCurriculumReports, allCurriculumResults] = await Promise.all([
+                db.CurriculumReport.findAll({
+                    attributes: ['id', 'Assessor_id'],
+                    where: { organization_id: id },
+                    raw: true
+                }),
+                db.CurriculumResult.findAll({
+                    attributes: ['report_id', 'question_id', 'score'],
+                    raw: true
+                })
+            ]);
+
+            const [allIndividualReports, allIndividualResults] = await Promise.all([
+                db.IndividualReport.findAll({
+                    attributes: ['id', 'Assessor_id'],
+                    where: { Assessee_id: relatedEmpUserIds },
+                    raw: true
+                }),
+                db.QuestionResult.findAll({
+                    attributes: ['report_id', 'question_id', 'score'],
+                    raw: true
+                })
+            ]);
+
+            const [allEnvironmentReports, allEnvironmentResults] = await Promise.all([
+                db.EnvironmentReports.findAll({
+                    attributes: ['id', 'user_id'],
+                    where: { organization_id: id },
+                    raw: true
+                }),
+                db.EnvironmentResults.findAll({
+                    attributes: ['report_id', 'question_id', 'score'],
+                    raw: true
+                })
+            ]);
+
+            const [forms, fields, subFields, questions] = await Promise.all([
+                db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
+                db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
+                db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
+                db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
+            ]);
+
+            const fieldMap = new Map(fields.map(f => [f.id, f.form_id]));
+            const subFieldMap = new Map(subFields.map(sf => [sf.id, fieldMap.get(sf.field_id)]));
+
+            const formsTG = forms.filter(f => f.code.endsWith('| TG'));
+            const formTGIds = formsTG.map(f => f.id);
+
+            const formsTE = forms.filter(f => f.code.endsWith('| TE'));
+            const formTEIds = formsTE.map(f => f.id);
+
+            const formsT = forms.filter(f => f.code.endsWith('| T'));
+            const formTIds = formsT.map(f => f.id);
+
+            const formsIP = forms.filter(f => f.code.endsWith('| IP'));
+            const formIPIds = formsIP.map(f => f.id);
+
+            const formsDD = forms.filter(f => f.code.endsWith('| DD'));
+            const formDDIds = formsDD.map(f => f.id);
+
+            const formsPO = forms.filter(f => f.code.endsWith('| PO'));
+            const formPOIds = formsPO.map(f => f.id);
+
+            const formsQD = forms.filter(f => f.code.endsWith('| QD'));
+            const formQDIds = formsQD.map(f => f.id);
+
+            const formsW = forms.filter(f => f.code.endsWith('| W'));
+            const formWIds = formsW.map(f => f.id);
+
+            const formsTR = forms.filter(f => f.code.endsWith('| TR'));
+            const formTRIds = formsTR.map(f => f.id);
+
+            const formsCP = forms.filter(f => f.code.endsWith('| CP'));
+            const formCPIds = formsCP.map(f => f.id);
+
+            const questionMaps = {
+                TG: {},
+                TE: {},
+                T: {},
+                IP: {},
+                DD: {},
+                PO: {},
+                QD: {},
+                W: {},
+                TR: {},
+                CP: {}
+            };
+
+            questions.forEach(q => {
+                const formId = subFieldMap.get(q.sub_field_id);
+                if (formTGIds.includes(formId)) questionMaps.TG[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTEIds.includes(formId)) questionMaps.TE[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTIds.includes(formId)) questionMaps.T[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formIPIds.includes(formId)) questionMaps.IP[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formDDIds.includes(formId)) questionMaps.DD[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formPOIds.includes(formId)) questionMaps.PO[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formQDIds.includes(formId)) questionMaps.QD[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formWIds.includes(formId)) questionMaps.W[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTRIds.includes(formId)) questionMaps.TR[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formCPIds.includes(formId)) questionMaps.CP[q.id] = { form_id: formId, max_score: q.max_score };
+            });
+
+            const [
+                allTGScore, allTEScore, allTScore, allIPScore,
+                allDDScore, allPOScore, allQDScore, allWScore,
+                allTRScore, allCPScore
+            ] = await Promise.all([
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TG, formTGIds, formsTG),
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TE, formTEIds, formsTE),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.IP, formIPIds, formsIP),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DD, formDDIds, formsDD),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.PO, formPOIds, formsPO),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.QD, formQDIds, formsQD),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.TR, formTRIds, formsTR),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.CP, formCPIds, formsCP)
+            ]);
+
+            const studentsAttendance = await db.studentAttendance.findAll({
+                attributes: ['status'],
+                where: { student_id: studentIds },
+                raw: true
+            });
+
+            const attendedCount = studentsAttendance.filter(s => s.status === 'attend').length;
+            const allStudentsAttendance = studentsAttendance.length > 0 ? attendedCount / studentsAttendance.length : 0;
+
+            const teachersEvaluation = await db.TeacherEvaluation.findAll({
+                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result'],
+                where: { teacher_id: teachersIds },
+                raw: true
+            });
+
+            // Save to result object
+            results.push({
+                id,
+                TQBM: {
+                    TG: allTGScore,
+                    TE: allTEScore,
+                    T: allTScore,
+                },
+                GOVBM: {
+                    IP: allIPScore,
+                    DD: allDDScore,
+                    PO: allPOScore,
+                    QD: allQDScore,
+                    W: allWScore,
+                },
+                ACBM: {
+                    TR: allTRScore,
+                    TG: allTGScore,
+                },
+                GEEBBM: {
+                    TQBM: {
+                        TG: allTGScore,
+                        TE: allTEScore,
+                        T: allTScore,
+                    },
+                    GOVBM: {
+                        IP: allIPScore,
+                        DD: allDDScore,
+                        PO: allPOScore,
+                        QD: allQDScore,
+                        W: allWScore,
+                    },
+                    ACBM: {
+                        TR: allTRScore,
+                        TG: allTGScore,
+                    },
+                    TRA: allStudentsAttendance,
+                    TV: teachersEvaluation,
+                    CP: allCPScore
+                }
             })
-        ]);
+        }
 
-        // Load forms metadata
-        const [forms, fields, subFields, questions] = await Promise.all([
-            db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
-            db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
-            db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
-            db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
-        ]);
-
-        // Build efficient mapping for form lookup
-        const fieldMap = new Map(fields.map(f => [f.id, f.form_id]));
-        const subFieldMap = new Map(subFields.map(sf => [sf.id, fieldMap.get(sf.field_id)]));
-
-        // TQBM:
-        // البرنامج التدريبي
-        const formsTG = forms.filter(f => f.code.endsWith('| TG'));
-        const formTGIds = formsTG.map(f => f.id);
-
-        // بيئة التدريب
-        const formsTE = forms.filter(f => f.code.endsWith('| TE'));
-        const formTEIds = formsTE.map(f => f.id);
-
-        // اداء المدرب
-        const formsT = forms.filter(f => f.code.endsWith('| T'));
-        const formTIds = formsT.map(f => f.id);
-
-        // GOVBM:
-        // الاداء المؤسسي
-        const formsIP = forms.filter(f => f.code.endsWith('| IP'));
-        const formIPIds = formsIP.map(f => f.id);
-
-        // رقمنة و تخزين البيانات
-        const formsDD = forms.filter(f => f.code.endsWith('| DD'));
-        const formDDIds = formsDD.map(f => f.id);
-
-        // تخطيط و التشغيل
-        const formsPO = forms.filter(f => f.code.endsWith('| PO'));
-        const formPOIds = formsPO.map(f => f.id);
-
-        // جودة و التطوير
-        const formsQD = forms.filter(f => f.code.endsWith('| QD'));
-        const formQDIds = formsQD.map(f => f.id);
-
-        // بيئة العمل
-        const formsW = forms.filter(f => f.code.endsWith('| W'));
-        const formWIds = formsW.map(f => f.id);
-
-        // ACBM:
-        // اداء المتدرب
-        const formsTR = forms.filter(f => f.code.endsWith('| TR'));
-        const formTRIds = formsTR.map(f => f.id);
-
-        // get form_id + max_score from each question
-        const questionTGMap = {};
-        const questionTEMap = {};
-        const questionTMap = {};
-        const questionIPMap = {};
-        const questionDDMap = {};
-        const questionPOMap = {};
-        const questionQDMap = {};
-        const questionWMap = {};
-        const questionTRMap = {};
-        questions.forEach(q => {
-            const formId = subFieldMap.get(q.sub_field_id);
-            if (formTGIds.includes(formId)) {
-                questionTGMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formTEIds.includes(formId)) {
-                questionTEMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formTIds.includes(formId)) {
-                questionTMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formIPIds.includes(formId)) {
-                questionIPMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formDDIds.includes(formId)) {
-                questionDDMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formPOIds.includes(formId)) {
-                questionPOMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formQDIds.includes(formId)) {
-                questionQDMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formWIds.includes(formId)) {
-                questionWMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            } else if (formTRIds.includes(formId)) {
-                questionTRMap[q.id] = {
-                    form_id: formId,
-                    max_score: q.max_score
-                };
-            }
-        });
-
-        // البرنامج التدريبي
-        const allTGScore = await calculateFormScore(
-            usersIds,
-            allCurriculumReports,
-            allCurriculumResults,
-            questionTGMap,
-            formTGIds,
-            formsTG
-        );
-
-        // بيئة التدريب
-        const allTEScore = await calculateFormScore(
-            usersIds,
-            allCurriculumReports,
-            allCurriculumResults,
-            questionTEMap,
-            formTEIds,
-            formsTE
-        );
-
-        // اداء المدرب
-        const allTScore = await calculateFormScore(
-            usersIds,
-            allIndividualReports,
-            allIndividualResults,
-            questionTMap,
-            formTIds,
-            formsT
-        );
-
-        // الاداء الؤسسي
-        const allIPScore = await calculateFormScore(
-            usersIds,
-            allEnvironmentReports,
-            allEnvironmentResults,
-            questionIPMap,
-            formIPIds,
-            formsIP
-        );
-
-        // رقمنة و تخزين البيانات
-        const allDDScore = await calculateFormScore(
-            usersIds,
-            allEnvironmentReports,
-            allEnvironmentResults,
-            questionDDMap,
-            formDDIds,
-            formsDD
-        );
-
-        // تخطيط و التشغيل
-        const allPOScore = await calculateFormScore(
-            usersIds,
-            allEnvironmentReports,
-            allEnvironmentResults,
-            questionPOMap,
-            formPOIds,
-            formsPO
-        );
-
-        // جودة و التطوير
-        const allQDScore = await calculateFormScore(
-            usersIds,
-            allEnvironmentReports,
-            allEnvironmentResults,
-            questionQDMap,
-            formQDIds,
-            formsQD
-        );
-
-        // بيئى العمل
-        const allWScore = await calculateFormScore(
-            usersIds,
-            allEnvironmentReports,
-            allEnvironmentResults,
-            questionWMap,
-            formWIds,
-            formsW
-        );
-
-        // اداء المتدرب
-        const allTRScore = await calculateFormScore(
-            usersIds,
-            allIndividualReports,
-            allIndividualResults,
-            questionTRMap,
-            formTRIds,
-            formsTR
-        );
-
-        res.json({
-            TQBM: {
-                tg: allTGScore,
-                te: allTEScore,
-                t: allTScore,
-            },
-            GOVBM: {
-                ip: allIPScore,
-                dd: allDDScore,
-                po: allPOScore,
-                qd: allQDScore,
-                w: allWScore,
-            },
-            ACBM: {
-                tr: allTRScore,
-                tg: allTGScore,
-            }
-        });
+        res.json(results);
     } catch (error) {
-        console.error('Error in centerEvaluationBreakdown:', error);
+        console.error('Error in watomsFormsScore:', error);
         res.status(500).json({
             message: 'Server error',
             error: error.message

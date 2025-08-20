@@ -5,7 +5,7 @@ const dashboardController = require('../controllers/dashboardController');
 router.get('/summary', dashboardController.summary);
 router.get('/centers', dashboardController.centers);
 router.get('/center/:id/evaluation-breakdown', dashboardController.centerEvaluationBreakdown);
-router.get('/watoms/forms/score/:id', dashboardController.watomsFormsScore);
+router.get('/watoms/forms/score', dashboardController.watomsFormsScore);
 router.get('/center/:id', dashboardController.centerDetails);
 router.get('/center/:organizationId/annual-performance', dashboardController.getAnnualPerformanceData);
 router.get('/wisdom/centers', dashboardController.wisdomCenters);
