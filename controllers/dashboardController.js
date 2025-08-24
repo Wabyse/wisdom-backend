@@ -4,7 +4,8 @@ const { calculateFormScore } = require('../utils/formScore');
 
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
-
+const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس'];
+const monthlyTotals = Array.from({ length: 8 }, () => ({ sum: 0, count: 0 }));
 // Helper to calculate evaluation for a single organization (center)
 async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     let loc = org.location;
@@ -150,6 +151,110 @@ async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
         status: 'unknown', // status will be set by caller
         evaluation
     };
+}
+
+const roundedNumber = (number) => {
+    return Number(Math.round(number));
+}
+
+const avg = (arr) => {
+    if (!Array.isArray(arr) || arr.length === 0) return 0;
+    let sum = 0, n = 0;
+    for (const it of arr) {
+        const v = Number(it?.average_score);
+        if (Number.isFinite(v)) { sum += v; n++; }    // only count valid scores
+    }
+    return n ? sum / n : 0;
+};
+
+function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, start, end) {
+    const filteredTG = tg.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredTE = te.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredT = t.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredIP = ip.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredDD = dd.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredPO = po.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredQD = qd.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredW = w.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredTR = tr.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredTV = tv.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    const filteredCP = cp.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+
+    const tgScore = avg(filteredTG);
+    const teScore = avg(filteredTE);
+    const tScore = avg(filteredT);
+    const ipScore = avg(filteredIP);
+    const ddScore = avg(filteredDD);
+    const poScore = avg(filteredPO);
+    const qdScore = avg(filteredQD);
+    const wScore = avg(filteredW);
+    const trScore = avg(filteredTR);
+    const tvScore = avg(filteredTV);
+    const cpScore = avg(filteredCP);
+    const tqbm = (tgScore * 40) + (teScore * 35) + (tScore * 25);
+    const govbm = (ipScore * 15) + (ddScore * 30) + (poScore * 20) + (qdScore * 20) + (wScore * 15);
+    const acbm = (trScore * 40) + (tgScore * 60);
+    const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (tvScore * 0.05) + (cpScore * 0.1);
+
+    return {
+        avgTG: tgScore,
+        avgTE: teScore,
+        avgT: tScore,
+        avgIP: ipScore,
+        avgDD: ddScore,
+        avgPO: poScore,
+        avgQD: qdScore,
+        avgW: wScore,
+        avgTR: trScore,
+        avgTV: tvScore,
+        avgCP: cpScore,
+        totalTQBM: tqbm,
+        totalGOVBM: govbm,
+        totalACBM: acbm,
+        totalGEEBM: geebm,
+        totalScore: (tqbm + govbm + acbm + geebm) / 4
+    }
+}
+
+function filterPerMonth(month, data) {
+    const year = new Date().getFullYear();
+    const filteredData = data.filter(item => {
+        const d = new Date(item.formDate);
+        return d.getFullYear() === year && (d.getMonth()) === (month - 1);
+    });
+
+    if (filteredData?.length !== 0) {
+        return avg(filteredData);
+    }
+
+    return 0;
+}
+
+function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp) {
+
+    const filteredTG = filterPerMonth(month, tg);
+    const filteredTE = filterPerMonth(month, te);
+    const filteredT = filterPerMonth(month, t);
+    const filteredIP = filterPerMonth(month, ip);
+    const filteredDD = filterPerMonth(month, dd);
+    const filteredPO = filterPerMonth(month, po);
+    const filteredQD = filterPerMonth(month, qd);
+    const filteredW = filterPerMonth(month, w);
+    const filteredTR = filterPerMonth(month, tr);
+    const filteredTV = filterPerMonth(month, tv);
+    const filteredCP = filterPerMonth(month, cp);
+    const tqbm = (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25);
+    const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
+    const acbm = (filteredTR * 40) + (filteredTG * 60);
+    const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1);
+    const totalScore = (tqbm + govbm + acbm + geebm) / 4;
+    // let color = '#ef4444';
+    // if (totalScore >= 70) {
+    //     color = '#22c55e';
+    // } else if (totalScore >= 40) {
+    //     color = '#f59e0b';
+    // }
+    return { month: months[month - 1], monthNumber: (month), performance: totalScore };
 }
 
 // --- SUMMARY ENDPOINT ---
@@ -1022,11 +1127,16 @@ exports.centerEvaluationBreakdown = async (req, res) => {
     }
 };
 
-// New: Evaluation breakdown for a single center (mock for now)
+// Watoms Dashboard Scores
 exports.watomsFormsScore = async (req, res) => {
     try {
-        const staticIds = [4, 5, 7, 8, 9]; // ✅ Add your static organization/school IDs here
-        const results = [];
+        const staticIds = [4, 5, 7, 8, 9];
+        const results = { totalScore: 0, months: [], organizations: {} };
+        let totalScores = 0;
+        let totalMonths = [];
+        const now = new Date();
+        const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+        const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 
         for (const id of staticIds) {
 
@@ -1059,7 +1169,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const [allCurriculumReports, allCurriculumResults] = await Promise.all([
                 db.CurriculumReport.findAll({
-                    attributes: ['id', 'Assessor_id'],
+                    attributes: ['id', 'Assessor_id', 'createdAt'],
                     where: { organization_id: id },
                     raw: true
                 }),
@@ -1071,7 +1181,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const [allIndividualReports, allIndividualResults] = await Promise.all([
                 db.IndividualReport.findAll({
-                    attributes: ['id', 'Assessor_id'],
+                    attributes: ['id', 'Assessor_id', 'createdAt'],
                     where: { Assessee_id: relatedEmpUserIds },
                     raw: true
                 }),
@@ -1083,7 +1193,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const [allEnvironmentReports, allEnvironmentResults] = await Promise.all([
                 db.EnvironmentReports.findAll({
-                    attributes: ['id', 'user_id'],
+                    attributes: ['id', 'user_id', 'createdAt'],
                     where: { organization_id: id },
                     raw: true
                 }),
@@ -1192,48 +1302,175 @@ exports.watomsFormsScore = async (req, res) => {
                 raw: true
             });
 
+            const overAllScore = calculateOverAllScore(
+                allTGScore,
+                allTEScore,
+                allTScore,
+                allIPScore,
+                allDDScore,
+                allPOScore,
+                allQDScore,
+                allWScore,
+                allTRScore,
+                allStudentsAttendance,
+                teachersEvaluation,
+                allCPScore,
+                start,
+                end)
+
+            const resultsThisRun = Array.from({ length: 8 }, (_, i) => {
+                const month1 = i + 1;
+                return calculateEachMonthScore(
+                    month1,
+                    allTGScore,
+                    allTEScore,
+                    allTScore,
+                    allIPScore,
+                    allDDScore,
+                    allPOScore,
+                    allQDScore,
+                    allWScore,
+                    allTRScore,
+                    allStudentsAttendance,
+                    teachersEvaluation,
+                    allCPScore
+                );
+            });
+
+            resultsThisRun.forEach((r, i) => {
+                monthlyTotals[i].sum += r.performance; // r.performance is your totalScore for that month
+                monthlyTotals[i].count += 1;
+            });
+
+            const monthlySums = monthlyTotals.map((m, i) => ({
+                month: months[i],
+                monthNumber: i + 1,
+                performance: m.count ? roundedNumber(m.sum / m.count) : 0,
+                color: '#ef4444'
+            }));
+
+            totalMonths = monthlySums;
+
             // Save to result object
-            results.push({
+            totalScores += overAllScore.totalScore;
+            results.organizations[id] = {
                 id,
+                overall: overAllScore.totalScore,
                 TQBM: {
-                    TG: allTGScore,
-                    TE: allTEScore,
-                    T: allTScore,
+                    totalTQBM: overAllScore.totalTQBM,
+                    TG: {
+                        avgScore: overAllScore.avgTG,
+                        scores: allTGScore
+                    },
+                    TE: {
+                        avgScore: overAllScore.avgTE,
+                        scores: allTEScore
+                    },
+                    T: {
+                        avgScore: overAllScore.avgT,
+                        scores: allTScore
+                    },
                 },
                 GOVBM: {
-                    IP: allIPScore,
-                    DD: allDDScore,
-                    PO: allPOScore,
-                    QD: allQDScore,
-                    W: allWScore,
+                    totalGOVBM: overAllScore.totalGOVBM,
+                    IP: {
+                        avgScore: overAllScore.avgIP,
+                        scores: allIPScore
+                    },
+                    DD: {
+                        avgScore: overAllScore.avgDD,
+                        scores: allDDScore
+                    },
+                    PO: {
+                        avgScore: overAllScore.avgPO,
+                        scores: allPOScore
+                    },
+                    QD: {
+                        avgScore: overAllScore.avgQD,
+                        scores: allQDScore
+                    },
+                    W: {
+                        avgScore: overAllScore.avgW,
+                        scores: allWScore
+                    },
                 },
                 ACBM: {
-                    TR: allTRScore,
-                    TG: allTGScore,
+                    totalACBM: overAllScore.totalACBM,
+                    TR: {
+                        avgScore: overAllScore.avgTR,
+                        scores: allTRScore
+                    },
+                    TG: {
+                        avgScore: overAllScore.avgTG,
+                        scores: allTGScore
+                    },
                 },
-                GEEBBM: {
+                GEEBM: {
+                    totalGEEBM: overAllScore.totalGEEBM,
                     TQBM: {
-                        TG: allTGScore,
-                        TE: allTEScore,
-                        T: allTScore,
+                        totalTQBM: overAllScore.totalTQBM,
+                        TG: {
+                            avgScore: overAllScore.avgTG,
+                            scores: allTGScore
+                        },
+                        TE: {
+                            avgScore: overAllScore.avgTE,
+                            scores: allTEScore
+                        },
+                        T: {
+                            avgScore: overAllScore.avgT,
+                            scores: allTScore
+                        },
                     },
                     GOVBM: {
-                        IP: allIPScore,
-                        DD: allDDScore,
-                        PO: allPOScore,
-                        QD: allQDScore,
-                        W: allWScore,
+                        totalGOVBM: overAllScore.totalGOVBM,
+                        IP: {
+                            avgScore: overAllScore.avgIP,
+                            scores: allIPScore
+                        },
+                        DD: {
+                            avgScore: overAllScore.avgDD,
+                            scores: allDDScore
+                        },
+                        PO: {
+                            avgScore: overAllScore.avgPO,
+                            scores: allPOScore
+                        },
+                        QD: {
+                            avgScore: overAllScore.avgQD,
+                            scores: allQDScore
+                        },
+                        W: {
+                            avgScore: overAllScore.avgW,
+                            scores: allWScore
+                        },
                     },
                     ACBM: {
-                        TR: allTRScore,
-                        TG: allTGScore,
+                        totalACBM: overAllScore.totalACBM,
+                        TR: {
+                            avgScore: overAllScore.avgTR,
+                            scores: allTRScore
+                        },
+                        TG: {
+                            avgScore: overAllScore.avgTG,
+                            scores: allTGScore
+                        },
                     },
                     TRA: allStudentsAttendance,
-                    TV: teachersEvaluation,
-                    CP: allCPScore
+                    TV: {
+                        avgScore: overAllScore.avgTV,
+                        scores: teachersEvaluation
+                    },
+                    CP: {
+                        avgScore: overAllScore.avgCP,
+                        scores: allCPScore
+                    },
                 }
-            })
+            }
         }
+
+        results.totalScore = totalScores / staticIds.length;
+        results.months = totalMonths;
 
         res.json(results);
     } catch (error) {
@@ -1846,44 +2083,44 @@ exports.getAnnualPerformanceData = async (req, res) => {
         const db = require('../db/models');
 
         // Check if database is available
-        try {
-            await db.sequelize.authenticate();
-        } catch (dbError) {
-            console.log('Database not available, returning mock annual performance data (limited to current month)');
+        // try {
+        //     await db.sequelize.authenticate();
+        // } catch (dbError) {
+        //     console.log('Database not available, returning mock annual performance data (limited to current month)');
 
-            // Only show data up to current month
-            const currentMonth = new Date().getMonth(); // 0-11
-            const monthsToShow = currentMonth + 1;
+        //     // Only show data up to current month
+        //     const currentMonth = new Date().getMonth(); // 0-11
+        //     const monthsToShow = currentMonth + 1;
 
-            const months = [
-                'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
-                'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
-            ];
+        //     const months = [
+        //         'يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيه',
+        //         'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'
+        //     ];
 
-            const allMockData = [
-                { month: 'يناير', monthNumber: 1, performance: 15, color: '#ef4444' },
-                { month: 'فبراير', monthNumber: 2, performance: 25, color: '#ef4444' },
-                { month: 'مارس', monthNumber: 3, performance: 35, color: '#f59e0b' },
-                { month: 'ابريل', monthNumber: 4, performance: 45, color: '#f59e0b' },
-                { month: 'مايو', monthNumber: 5, performance: 35, color: '#f59e0b' },
-                { month: 'يونيه', monthNumber: 6, performance: 55, color: '#f59e0b' },
-                { month: 'يوليو', monthNumber: 7, performance: 65, color: '#f59e0b' },
-                { month: 'اغسطس', monthNumber: 8, performance: 75, color: '#22c55e' },
-                { month: 'سبتمبر', monthNumber: 9, performance: 80, color: '#22c55e' },
-                { month: 'اكتوبر', monthNumber: 10, performance: 85, color: '#22c55e' },
-                { month: 'نوفمبر', monthNumber: 11, performance: 90, color: '#22c55e' },
-                { month: 'ديسمبر', monthNumber: 12, performance: 95, color: '#22c55e' }
-            ];
+        //     const allMockData = [
+        //         { month: 'يناير', monthNumber: 1, performance: 15, color: '#ef4444' },
+        //         { month: 'فبراير', monthNumber: 2, performance: 25, color: '#ef4444' },
+        //         { month: 'مارس', monthNumber: 3, performance: 35, color: '#f59e0b' },
+        //         { month: 'ابريل', monthNumber: 4, performance: 45, color: '#f59e0b' },
+        //         { month: 'مايو', monthNumber: 5, performance: 35, color: '#f59e0b' },
+        //         { month: 'يونيه', monthNumber: 6, performance: 55, color: '#f59e0b' },
+        //         { month: 'يوليو', monthNumber: 7, performance: 65, color: '#f59e0b' },
+        //         { month: 'اغسطس', monthNumber: 8, performance: 75, color: '#22c55e' },
+        //         { month: 'سبتمبر', monthNumber: 9, performance: 80, color: '#22c55e' },
+        //         { month: 'اكتوبر', monthNumber: 10, performance: 85, color: '#22c55e' },
+        //         { month: 'نوفمبر', monthNumber: 11, performance: 90, color: '#22c55e' },
+        //         { month: 'ديسمبر', monthNumber: 12, performance: 95, color: '#22c55e' }
+        //     ];
 
-            // Only return data up to current month
-            const mockData = allMockData.slice(0, monthsToShow);
+        //     // Only return data up to current month
+        //     const mockData = allMockData.slice(0, monthsToShow);
 
-            return res.json({
-                success: true,
-                data: mockData,
-                year: new Date().getFullYear()
-            });
-        }
+        //     return res.json({
+        //         success: true,
+        //         data: mockData,
+        //         year: new Date().getFullYear()
+        //     });
+        // }
 
         // Get current year
         const currentYear = new Date().getFullYear();
