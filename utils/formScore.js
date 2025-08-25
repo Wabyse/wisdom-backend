@@ -1,5 +1,5 @@
 async function calculateFormScore(userIds, allReports, allResults, questionMap, formIds, forms) {
-  // 1) reports for these users
+  // related reports for users
   const reportRows = (allReports ?? []).filter(r =>
     userIds.includes(r.Assessor_id ?? r.user_id)
   );
@@ -9,10 +9,10 @@ async function calculateFormScore(userIds, allReports, allResults, questionMap, 
   const reportIdToDate = new Map(reportRows.map(r => [r.id, r.createdAt]));
   const formsById = new Map((forms ?? []).map(f => [f.id, f]));
 
-  // 2) only results for those reports
+  // only results for those reports
   const relevantResults = (allResults ?? []).filter(r => reportIds.includes(r.report_id));
 
-  // 3) per-report aggregation (sum of normalized scores & count)
+  // sum of normalized scores & count
   const reportScores = {};
   const reportCounts = {};
   for (const result of relevantResults) {

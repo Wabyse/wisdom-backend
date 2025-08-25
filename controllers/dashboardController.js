@@ -1,11 +1,12 @@
 const db = require('../db/models');
 const { Op, literal } = require('sequelize');
 const { calculateFormScore } = require('../utils/formScore');
+const { roundNumber } = require('../utils/roundNumber');
 
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
-const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس'];
-const monthlyTotals = Array.from({ length: 8 }, () => ({ sum: 0, count: 0 }));
+const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'];
+const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0 }));
 // Helper to calculate evaluation for a single organization (center)
 async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     let loc = org.location;
@@ -153,10 +154,6 @@ async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     };
 }
 
-const roundedNumber = (number) => {
-    return Number(Math.round(number));
-}
-
 const avg = (arr) => {
     if (!Array.isArray(arr) || arr.length === 0) return 0;
     let sum = 0, n = 0;
@@ -212,7 +209,7 @@ function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, st
         totalGOVBM: govbm,
         totalACBM: acbm,
         totalGEEBM: geebm,
-        totalScore: (tqbm + govbm + acbm + geebm) / 4
+        totalScore: geebm
     }
 }
 
@@ -247,7 +244,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
     const acbm = (filteredTR * 40) + (filteredTG * 60);
     const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1);
-    const totalScore = (tqbm + govbm + acbm + geebm) / 4;
+    const totalScore = geebm;
     // let color = '#ef4444';
     // if (totalScore >= 70) {
     //     color = '#22c55e';
@@ -1130,84 +1127,119 @@ exports.centerEvaluationBreakdown = async (req, res) => {
 // Watoms Dashboard Scores
 exports.watomsFormsScore = async (req, res) => {
     try {
+        // static watoms organizations ids
         const staticIds = [4, 5, 7, 8, 9];
+
+        // final result's variable
         const results = { totalScore: 0, months: [], organizations: {} };
+
         let totalScores = 0;
+
         let totalMonths = [];
+
+        // get current Month and Year
         const now = new Date();
         const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
         const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
 
+        // fetch student's data related to the selected school's ids
+        const students = await db.Student.findAll({
+            attributes: ['id', 'user_id', 'school_id'],
+            where: { school_id: staticIds },
+            raw: true
+        });
+
+        // organize the students by school
+        const studentsBySchool = students.reduce((acc, s) => {
+            (acc[s.school_id] ||= []).push(s);
+            return acc;
+        }, {});
+
+        // fetch all employees data
+        const employees = await db.Employee.findAll({
+            attributes: ['id', 'user_id', "organization_id"],
+            raw: true
+        });
+        // get their ids
+        const employeeUserIds = employees.map(s => s.user_id);
+
+        // fetch all teacher's data
+        const teachers = await db.Teacher.findAll({
+            attributes: ['id', 'employee_id'],
+            raw: true
+        });
+
+        // fetch all results (curriculum, individual, environment)
+        const [allCurriculumResults, allIndividualResults, allEnvironmentResults] = await Promise.all([
+            db.CurriculumResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            }),
+            db.QuestionResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            }),
+            db.EnvironmentResults.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            })
+        ]);
+
+        // fetch all form's details
+        const [forms, fields, subFields, questions] = await Promise.all([
+            db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
+            db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
+            db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
+            db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
+        ]);
+
+        const studentsAttendance = await db.studentAttendance.findAll({
+            attributes: ['status', 'student_id'],
+            raw: true
+        });
+
+        // looping though every organization
         for (const id of staticIds) {
 
-            const students = await db.Student.findAll({
-                attributes: ['id', 'user_id'],
-                where: { school_id: id },
-                raw: true
-            });
-            const studentIds = students.map(s => s.id);
-            const studentUserIds = students.map(s => s.user_id);
-
-            const employees = await db.Employee.findAll({
-                attributes: ['id', 'user_id', "organization_id"],
-                raw: true
-            });
-            const employeeUserIds = employees.map(s => s.user_id);
+            const schoolStudents = studentsBySchool[id] || [];
+            const studentIds = schoolStudents.map(s => s.id);
+            const studentUserIds = schoolStudents.map(s => s.user_id);
 
             const usersIds = [...studentUserIds, ...employeeUserIds];
 
+            // get related employee's data (user_id, id)
             const relatedEmp = employees.filter(emp => emp.organization_id === id);
             const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
             const relatedEmpIds = relatedEmp.map(s => s.id);
 
-            const teachers = await db.Teacher.findAll({
-                attributes: ['id'],
-                where: { employee_id: relatedEmpIds },
-                raw: true
-            });
-            const teachersIds = teachers.map(s => s.id);
+            // get related teacher's data (id)
+            const relatedTeachers = teachers.filter(teacher => relatedEmpIds.includes(teacher.employee_id));
+            const teachersIds = relatedTeachers.map(s => s.id);
 
-            const [allCurriculumReports, allCurriculumResults] = await Promise.all([
+            const [allCurriculumReports] = await Promise.all([
                 db.CurriculumReport.findAll({
                     attributes: ['id', 'Assessor_id', 'createdAt'],
                     where: { organization_id: id },
                     raw: true
-                }),
-                db.CurriculumResult.findAll({
-                    attributes: ['report_id', 'question_id', 'score'],
-                    raw: true
                 })
             ]);
 
-            const [allIndividualReports, allIndividualResults] = await Promise.all([
+            const [allIndividualReports] = await Promise.all([
                 db.IndividualReport.findAll({
                     attributes: ['id', 'Assessor_id', 'createdAt'],
                     where: { Assessee_id: relatedEmpUserIds },
                     raw: true
-                }),
-                db.QuestionResult.findAll({
-                    attributes: ['report_id', 'question_id', 'score'],
-                    raw: true
                 })
             ]);
 
-            const [allEnvironmentReports, allEnvironmentResults] = await Promise.all([
+            const [allEnvironmentReports] = await Promise.all([
                 db.EnvironmentReports.findAll({
                     attributes: ['id', 'user_id', 'createdAt'],
                     where: { organization_id: id },
                     raw: true
-                }),
-                db.EnvironmentResults.findAll({
-                    attributes: ['report_id', 'question_id', 'score'],
-                    raw: true
                 })
-            ]);
-
-            const [forms, fields, subFields, questions] = await Promise.all([
-                db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
-                db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
-                db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
-                db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
             ]);
 
             const fieldMap = new Map(fields.map(f => [f.id, f.form_id]));
@@ -1243,18 +1275,7 @@ exports.watomsFormsScore = async (req, res) => {
             const formsCP = forms.filter(f => f.code.endsWith('| CP'));
             const formCPIds = formsCP.map(f => f.id);
 
-            const questionMaps = {
-                TG: {},
-                TE: {},
-                T: {},
-                IP: {},
-                DD: {},
-                PO: {},
-                QD: {},
-                W: {},
-                TR: {},
-                CP: {}
-            };
+            const questionMaps = { TG: {}, TE: {}, T: {}, IP: {}, DD: {}, PO: {}, QD: {}, W: {}, TR: {}, CP: {} };
 
             questions.forEach(q => {
                 const formId = subFieldMap.get(q.sub_field_id);
@@ -1287,14 +1308,10 @@ exports.watomsFormsScore = async (req, res) => {
                 calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.CP, formCPIds, formsCP)
             ]);
 
-            const studentsAttendance = await db.studentAttendance.findAll({
-                attributes: ['status'],
-                where: { student_id: studentIds },
-                raw: true
-            });
+            const relatedSTA = studentsAttendance.filter(sta => studentIds.includes(sta.student_id))
 
-            const attendedCount = studentsAttendance.filter(s => s.status === 'attend').length;
-            const allStudentsAttendance = studentsAttendance.length > 0 ? attendedCount / studentsAttendance.length : 0;
+            const attendedCount = relatedSTA.filter(s => s.status === 'attend').length;
+            const allStudentsAttendance = relatedSTA.length > 0 ? attendedCount / relatedSTA.length : 0;
 
             const teachersEvaluation = await db.TeacherEvaluation.findAll({
                 attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result'],
@@ -1342,12 +1359,22 @@ exports.watomsFormsScore = async (req, res) => {
                 monthlyTotals[i].count += 1;
             });
 
-            const monthlySums = monthlyTotals.map((m, i) => ({
-                month: months[i],
-                monthNumber: i + 1,
-                performance: m.count ? roundedNumber(m.sum / m.count) : 0,
-                color: '#ef4444'
-            }));
+            const startMonth = (currentYear === 2025) ? 4 : 1;
+            // const endMonth = (year === currentYear) ? currentMonth : 12;
+            const endMonth = currentMonth;
+
+            const monthlySums = [];
+            for (let m = startMonth; m <= endMonth; m++) {
+                const i = m - 1;
+                const perf = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].sum / monthlyTotals[i].count) : 0;
+
+                monthlySums.push({
+                    month: months[i],
+                    monthNumber: m,
+                    performance: perf,
+                    color: '#ef4444'
+                });
+            }
 
             totalMonths = monthlySums;
 
@@ -2369,7 +2396,7 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Get statistics
             const students = await db.Student.count({ where: { school_id: organizationId, deleted: false } });
             const employees = await db.Employee.count({ where: { organization_id: organizationId, deleted: false } });
-            const teachers = await db.Teacher.count({ where: { organization_id: organizationId, deleted: false } });
+            const teachers = await db.Teacher.count({ where: { deleted: false } });
 
             // Get employee roles for more detailed statistics
             const employeeRoles = await db.EmployeeRole.findAll({
@@ -2786,7 +2813,7 @@ exports.getProjectUnitsRanking = async (req, res) => {
             // Try to get at least basic counts even if complex calculations fail
             try {
                 const students = await db.Student.count({ where: { school_id: organizationId, deleted: false } }) || 0;
-                const teachers = await db.Teacher.count({ where: { organization_id: organizationId, deleted: false } }) || 0;
+                const teachers = await db.Teacher.count({ where: { deleted: false } }) || 0;
                 const employees = await db.Employee.count({ where: { organization_id: organizationId, deleted: false } }) || 0;
 
                 statistics = {
