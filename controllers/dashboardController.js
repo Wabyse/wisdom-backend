@@ -6,7 +6,7 @@ const { roundNumber } = require('../utils/roundNumber');
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
 const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'];
-const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0 }));
+const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, tqbm: 0, govbm: 0, acbm: 0, geebm: 0 }));
 // Helper to calculate evaluation for a single organization (center)
 async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     let loc = org.location;
@@ -251,7 +251,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     // } else if (totalScore >= 40) {
     //     color = '#f59e0b';
     // }
-    return { month: months[month - 1], monthNumber: (month), performance: totalScore };
+    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm };
 }
 
 // --- SUMMARY ENDPOINT ---
@@ -1357,6 +1357,10 @@ exports.watomsFormsScore = async (req, res) => {
             resultsThisRun.forEach((r, i) => {
                 monthlyTotals[i].sum += r.performance; // r.performance is your totalScore for that month
                 monthlyTotals[i].count += 1;
+                monthlyTotals[i].tqbm += r.tqbm;
+                monthlyTotals[i].govbm += r.govbm;
+                monthlyTotals[i].acbm += r.acbm;
+                monthlyTotals[i].geebm += r.geebm;
             });
 
             const startMonth = (currentYear === 2025) ? 4 : 1;
@@ -1367,11 +1371,19 @@ exports.watomsFormsScore = async (req, res) => {
             for (let m = startMonth; m <= endMonth; m++) {
                 const i = m - 1;
                 const perf = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].sum / monthlyTotals[i].count) : 0;
+                const tqbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].tqbm / monthlyTotals[i].count) : 0;
+                const govbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].govbm / monthlyTotals[i].count) : 0;
+                const acbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].acbm / monthlyTotals[i].count) : 0;
+                const geebm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].geebm / monthlyTotals[i].count) : 0;
 
                 monthlySums.push({
                     month: months[i],
                     monthNumber: m,
                     performance: perf,
+                    tqbm,
+                    govbm,
+                    acbm,
+                    geebm,
                     color: '#ef4444'
                 });
             }
@@ -1382,6 +1394,8 @@ exports.watomsFormsScore = async (req, res) => {
             totalScores += overAllScore.totalScore;
             results.organizations[id] = {
                 id,
+                no_of_trainees: studentsBySchool[id].length,
+                no_of_trainers: relatedTeachers.length,
                 overall: overAllScore.totalScore,
                 TQBM: {
                     totalTQBM: overAllScore.totalTQBM,
