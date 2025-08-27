@@ -1363,6 +1363,12 @@ exports.watomsFormsScore = async (req, res) => {
                 monthlyTotals[i].geebm += r.geebm;
             });
 
+            const orgMonthResults = resultsThisRun.map(({ month, monthNumber, performance }) => ({
+                month,
+                monthNumber,
+                performance
+            }));
+
             const startMonth = (currentYear === 2025) ? 4 : 1;
             // const endMonth = (year === currentYear) ? currentMonth : 12;
             const endMonth = currentMonth;
@@ -1397,6 +1403,7 @@ exports.watomsFormsScore = async (req, res) => {
                 no_of_trainees: studentsBySchool[id].length,
                 no_of_trainers: relatedTeachers.length,
                 overall: overAllScore.totalScore,
+                months: orgMonthResults,
                 TQBM: {
                     totalTQBM: overAllScore.totalTQBM,
                     TG: {
