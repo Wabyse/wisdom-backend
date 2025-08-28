@@ -1129,9 +1129,10 @@ exports.watomsFormsScore = async (req, res) => {
     try {
         // static watoms organizations ids
         const staticIds = [4, 5, 7, 8, 9];
+        const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
 
         // final result's variable
-        const results = { totalScore: 0, months: [], organizations: {} };
+        const results = { totalScore: 0, months: [], totalTrainees: 0, totalCurriculums: 0, organizations: {} };
 
         let totalScores = 0;
 
@@ -1143,6 +1144,25 @@ exports.watomsFormsScore = async (req, res) => {
         const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
         const currentMonth = now.getMonth() + 1;
         const currentYear = now.getFullYear();
+
+        // fetch curriculum's data related to the selected school's ids
+        const organizations = await db.Organization.findAll({
+            attributes: ["id", "name"],
+            where: {
+                id: staticIds,
+                type: "school"
+            },
+            raw: true
+        });
+
+        // fetch curriculum's data related to the selected school's ids
+        const curriculums = await db.Curriculum.findAll({
+            attributes: ["id"],
+            where: {
+                id: { [Op.notIn]: staticCurrIds }
+            },
+            raw: true
+        });
 
         // fetch student's data related to the selected school's ids
         const students = await db.Student.findAll({
@@ -1366,7 +1386,7 @@ exports.watomsFormsScore = async (req, res) => {
             const orgMonthResults = resultsThisRun.map(({ month, monthNumber, performance }) => ({
                 month,
                 monthNumber,
-                performance
+                performance: roundNumber(performance)
             }));
 
             const startMonth = (currentYear === 2025) ? 4 : 1;
@@ -1394,16 +1414,20 @@ exports.watomsFormsScore = async (req, res) => {
                 });
             }
 
+            const orgName = organizations.filter(org => org.id === id)[0].name;
+
             totalMonths = monthlySums;
+            const totalOrgMonths = orgMonthResults.filter(month => month.monthNumber >= startMonth && month.monthNumber <= currentMonth);
 
             // Save to result object
             totalScores += overAllScore.totalScore;
             results.organizations[id] = {
                 id,
+                name: orgName,
                 no_of_trainees: studentsBySchool[id].length,
                 no_of_trainers: relatedTeachers.length,
                 overall: overAllScore.totalScore,
-                months: orgMonthResults,
+                months: totalOrgMonths,
                 TQBM: {
                     totalTQBM: overAllScore.totalTQBM,
                     TG: {
@@ -1519,6 +1543,8 @@ exports.watomsFormsScore = async (req, res) => {
 
         results.totalScore = totalScores / staticIds.length;
         results.months = totalMonths;
+        results.totalTrainees = students.length;
+        results.totalCurriculums = curriculums.length;
 
         res.json(results);
     } catch (error) {
