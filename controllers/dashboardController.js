@@ -6,7 +6,7 @@ const { roundNumber } = require('../utils/roundNumber');
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
 const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'];
-const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, tqbm: 0, govbm: 0, acbm: 0, geebm: 0 }));
+const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, overall: 0, TQBM: { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } }, GOVBM: { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } }, ACBM: { totalACBM: 0, TG: { avgScore: 0, scores: [] }, TR: { avgScore: 0, scores: [] } }, GEEBM: { totalGEEBM: 0, TQBM: 0, GOVBM: 0, ACBM: 0, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } } }));
 // Helper to calculate evaluation for a single organization (center)
 async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     let loc = org.location;
@@ -251,7 +251,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     // } else if (totalScore >= 40) {
     //     color = '#f59e0b';
     // }
-    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm };
+    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm, tqbmtg: (filteredTG * 40), te: (filteredTE * 35), t: (filteredT * 25), ip: (filteredIP * 15), dd: (filteredDD * 30), po: (filteredPO * 20), qd: (filteredQD * 20), w: (filteredW * 15), acbmtg: (filteredTG * 60), tr: (filteredTR * 40), tra: (tra * 0.1), tv: (filteredTV * 0.05), cp: (filteredCP * 0.1) };
 }
 
 // --- SUMMARY ENDPOINT ---
@@ -1131,10 +1131,91 @@ exports.watomsFormsScore = async (req, res) => {
         const staticIds = [4, 5, 7, 8, 9];
         const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
 
+        let TQBM = { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } };
+        let GOVBM = { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } };
+        let ACBM = { totalACBM: 0, TR: { avgScore: 0, scores: [] }, TG: { avgScore: 0, scores: [] } };
+
         // final result's variable
-        const results = { totalScore: 0, months: [], totalTrainees: 0, totalCurriculums: 0, organizations: {} };
+        const results = {
+            totalCurriculums: 0,
+            total: {
+                id: "All",
+                en_name: "All",
+                ar_name: "الكل",
+                no_of_trainees: 0,
+                no_of_trainers: 0,
+                overall: 0,
+                months: [],
+                TQBM: {
+                    totalTQBM: 0,
+                    TG: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    TE: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    T: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                GOVBM: {
+                    totalGOVBM: 0,
+                    IP: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    DD: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    PO: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    QD: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    W: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                ACBM: {
+                    totalACBM: 0,
+                    TR: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    TG: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                GEEBM: {
+                    totalGEEBM: 0,
+                    TQBM,
+                    GOVBM,
+                    ACBM,
+                    TRA: 0,
+                    TV: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    CP: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                }
+            },
+            organizations: {}
+        };
 
         let totalScores = 0;
+        let GEEBM = { totalGEEBM: 0, TQBM, GOVBM, ACBM, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } }
 
         let totalMonths = [];
 
@@ -1377,17 +1458,29 @@ exports.watomsFormsScore = async (req, res) => {
             resultsThisRun.forEach((r, i) => {
                 monthlyTotals[i].sum += r.performance; // r.performance is your totalScore for that month
                 monthlyTotals[i].count += 1;
-                monthlyTotals[i].tqbm += r.tqbm;
-                monthlyTotals[i].govbm += r.govbm;
-                monthlyTotals[i].acbm += r.acbm;
-                monthlyTotals[i].geebm += r.geebm;
+                monthlyTotals[i].TQBM.totalTQBM += r.tqbm;
+                monthlyTotals[i].TQBM.TG.avgScore += r.tqbmtg;
+                monthlyTotals[i].TQBM.TE.avgScore += r.te;
+                monthlyTotals[i].TQBM.T.avgScore += r.t;
+                monthlyTotals[i].GOVBM.totalGOVBM += r.govbm;
+                monthlyTotals[i].GOVBM.IP.avgScore += r.ip;
+                monthlyTotals[i].GOVBM.DD.avgScore += r.dd;
+                monthlyTotals[i].GOVBM.PO.avgScore += r.po;
+                monthlyTotals[i].GOVBM.QD.avgScore += r.qd;
+                monthlyTotals[i].GOVBM.W.avgScore += r.w;
+                monthlyTotals[i].ACBM.totalACBM += r.acbm;
+                monthlyTotals[i].ACBM.TG.avgScore += r.acbmtg;
+                monthlyTotals[i].ACBM.TR.avgScore += r.tr;
+                monthlyTotals[i].GEEBM.totalGEEBM += r.geebm;
+                monthlyTotals[i].GEEBM.TQBM += r.tqbm;
+                monthlyTotals[i].GEEBM.GOVBM += r.govbm;
+                monthlyTotals[i].GEEBM.ACBM += r.acbm;
+                monthlyTotals[i].GEEBM.TRA += r.tra;
+                monthlyTotals[i].GEEBM.TV.avgScore += r.tv;
+                monthlyTotals[i].GEEBM.CP.avgScore += r.cp;
             });
 
-            const orgMonthResults = resultsThisRun.map(({ month, monthNumber, performance }) => ({
-                month,
-                monthNumber,
-                performance: roundNumber(performance)
-            }));
+            const orgMonthResults = resultsThisRun;
 
             const startMonth = (currentYear === 2025) ? 4 : 1;
             // const endMonth = (year === currentYear) ? currentMonth : 12;
@@ -1397,19 +1490,32 @@ exports.watomsFormsScore = async (req, res) => {
             for (let m = startMonth; m <= endMonth; m++) {
                 const i = m - 1;
                 const perf = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].sum / monthlyTotals[i].count) : 0;
-                const tqbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].tqbm / monthlyTotals[i].count) : 0;
-                const govbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].govbm / monthlyTotals[i].count) : 0;
-                const acbm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].acbm / monthlyTotals[i].count) : 0;
-                const geebm = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].geebm / monthlyTotals[i].count) : 0;
+                const TQBM = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].TQBM.totalTQBM / monthlyTotals[i].count) : 0;
+                const TQBMTG = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].TQBM.TG.avgScore / monthlyTotals[i].count) : 0;
+                const TQBMTE = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].TQBM.TE.avgScore / monthlyTotals[i].count) : 0;
+                const TQBMT = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].TQBM.T.avgScore / monthlyTotals[i].count) : 0;
+                const GOVBM = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.totalGOVBM / monthlyTotals[i].count) : 0;
+                const GOVBMIP = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.IP.avgScore / monthlyTotals[i].count) : 0;
+                const GOVBMDD = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.DD.avgScore / monthlyTotals[i].count) : 0;
+                const GOVBMPO = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.PO.avgScore / monthlyTotals[i].count) : 0;
+                const GOVBMQD = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.QD.avgScore / monthlyTotals[i].count) : 0;
+                const GOVBMW = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GOVBM.W.avgScore / monthlyTotals[i].count) : 0;
+                const ACBM = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].ACBM.totalACBM / monthlyTotals[i].count) : 0;
+                const ACBMTG = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].ACBM.TG.avgScore / monthlyTotals[i].count) : 0;
+                const ACBMTR = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].ACBM.TR.avgScore / monthlyTotals[i].count) : 0;
+                const GEEBM = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.totalGEEBM / monthlyTotals[i].count) : 0;
+                const GEEBMTRA = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.TRA / monthlyTotals[i].count) : 0;
+                const GEEBMTTV = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.TV.avgScore / monthlyTotals[i].count) : 0;
+                const GEEBMTCP = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.CP.avgScore / monthlyTotals[i].count) : 0;
 
                 monthlySums.push({
                     month: months[i],
                     monthNumber: m,
                     performance: perf,
-                    tqbm,
-                    govbm,
-                    acbm,
-                    geebm,
+                    TQBM: { totalTQBM: TQBM, TG: { avgScore: TQBMTG }, TE: { avgScore: TQBMTE }, T: { avgScore: TQBMT } },
+                    GOVBM: { totalGOVBM: GOVBM, IP: { avgScore: GOVBMIP }, DD: { avgScore: GOVBMDD }, PO: { avgScore: GOVBMPO }, QD: { avgScore: GOVBMQD }, W: { avgScore: GOVBMW } },
+                    ACBM: { totalACBM: ACBM, TG: { avgScore: ACBMTG }, TR: { avgScore: ACBMTR } },
+                    GEEBM: { totalGEEBM: GEEBM, TQBM: roundNumber(TQBM * 0.3), GOVBM: roundNumber(GOVBM * 0.25), ACBM: roundNumber(ACBM * 0.2), TRA: GEEBMTRA, TV: { avgScore: GEEBMTTV }, CP: { avgScore: GEEBMTCP } },
                     color: '#ef4444'
                 });
             }
@@ -1418,132 +1524,227 @@ exports.watomsFormsScore = async (req, res) => {
 
             totalMonths = monthlySums;
             const totalOrgMonths = orgMonthResults.filter(month => month.monthNumber >= startMonth && month.monthNumber <= currentMonth);
+            const monthlySums2 = [];
+
+            function roundNumber(value) {
+                return Math.round(value * 100) / 100;
+            }
+
+            for (let m = startMonth; m <= endMonth; m++) {
+                const currentMonthData = totalOrgMonths.find(month => month.monthNumber === m);
+                if (!currentMonthData) continue;
+
+                const perf = roundNumber(currentMonthData.performance || 0);
+                const TQBM = roundNumber(currentMonthData.tqbm || 0);
+                const TQBMTG = roundNumber(currentMonthData.tqbmtg || 0);
+                const TQBMTE = roundNumber(currentMonthData.te || 0);
+                const TQBMT = roundNumber(currentMonthData.t || 0);
+                const GOVBM = roundNumber(currentMonthData.govbm || 0);
+                const GOVBMIP = roundNumber(currentMonthData.ip || 0);
+                const GOVBMDD = roundNumber(currentMonthData.dd || 0);
+                const GOVBMPO = roundNumber(currentMonthData.po || 0);
+                const GOVBMQD = roundNumber(currentMonthData.qd || 0);
+                const GOVBMW = roundNumber(currentMonthData.w || 0);
+                const ACBM = roundNumber(currentMonthData.acbm || 0);
+                const ACBMTG = roundNumber(currentMonthData.acbmtg || 0);
+                const ACBMTR = roundNumber(currentMonthData.tr || 0);
+                const GEEBM = roundNumber(currentMonthData.geebm || 0);
+                const GEEBMTRA = roundNumber(currentMonthData.tra || 0);
+                const GEEBMTTV = roundNumber(currentMonthData.tv || 0);
+                const GEEBMTCP = roundNumber(currentMonthData.cp || 0);
+
+                monthlySums2.push({
+                    month: currentMonthData.month,
+                    monthNumber: m,
+                    performance: perf,
+                    TQBM: {
+                        totalTQBM: TQBM,
+                        TG: { avgScore: TQBMTG },
+                        TE: { avgScore: TQBMTE },
+                        T: { avgScore: TQBMT }
+                    },
+                    GOVBM: {
+                        totalGOVBM: GOVBM,
+                        IP: { avgScore: GOVBMIP },
+                        DD: { avgScore: GOVBMDD },
+                        PO: { avgScore: GOVBMPO },
+                        QD: { avgScore: GOVBMQD },
+                        W: { avgScore: GOVBMW }
+                    },
+                    ACBM: {
+                        totalACBM: ACBM,
+                        TG: { avgScore: ACBMTG },
+                        TR: { avgScore: ACBMTR }
+                    },
+                    GEEBM: {
+                        totalGEEBM: GEEBM,
+                        TQBM: roundNumber(TQBM * 0.3),
+                        GOVBM: roundNumber(GOVBM * 0.25),
+                        ACBM: roundNumber(ACBM * 0.2),
+                        TRA: GEEBMTRA,
+                        TV: { avgScore: GEEBMTTV },
+                        CP: { avgScore: GEEBMTCP }
+                    },
+                    color: '#ef4444'
+                });
+            }
 
             // Save to result object
             totalScores += overAllScore.totalScore;
+            TQBM.totalTQBM += overAllScore.totalTQBM;
+            TQBM.TG.avgScore += overAllScore.avgTG;
+            TQBM.TG.scores.push(...allTGScore);
+            TQBM.TE.avgScore += overAllScore.avgTE;
+            TQBM.TE.scores.push(...allTEScore);
+            TQBM.T.avgScore += overAllScore.avgT;
+            TQBM.T.scores.push(...allTScore);
+            GOVBM.totalGOVBM += overAllScore.totalGOVBM;
+            GOVBM.IP.avgScore += overAllScore.avgIP;
+            GOVBM.IP.scores.push(...allIPScore);
+            GOVBM.DD.avgScore += overAllScore.avgDD;
+            GOVBM.DD.scores.push(...allDDScore);
+            GOVBM.PO.avgScore += overAllScore.avgPO;
+            GOVBM.PO.scores.push(...allPOScore);
+            GOVBM.QD.avgScore += overAllScore.avgQD;
+            GOVBM.QD.scores.push(...allQDScore);
+            GOVBM.W.avgScore += overAllScore.avgW;
+            GOVBM.W.scores.push(...allWScore);
+            ACBM.totalACBM += overAllScore.totalACBM;
+            ACBM.TG.avgScore += overAllScore.avgTG;
+            ACBM.TG.scores.push(...allTGScore);
+            ACBM.TR.avgScore += overAllScore.avgTR;
+            ACBM.TR.scores.push(...allTRScore);
             results.organizations[id] = {
                 id,
                 name: orgName,
                 no_of_trainees: studentsBySchool[id].length,
                 no_of_trainers: relatedTeachers.length,
                 overall: overAllScore.totalScore,
-                months: totalOrgMonths,
-                TQBM: {
-                    totalTQBM: overAllScore.totalTQBM,
-                    TG: {
-                        avgScore: overAllScore.avgTG,
-                        scores: allTGScore
-                    },
-                    TE: {
-                        avgScore: overAllScore.avgTE,
-                        scores: allTEScore
-                    },
-                    T: {
-                        avgScore: overAllScore.avgT,
-                        scores: allTScore
-                    },
-                },
-                GOVBM: {
-                    totalGOVBM: overAllScore.totalGOVBM,
-                    IP: {
-                        avgScore: overAllScore.avgIP,
-                        scores: allIPScore
-                    },
-                    DD: {
-                        avgScore: overAllScore.avgDD,
-                        scores: allDDScore
-                    },
-                    PO: {
-                        avgScore: overAllScore.avgPO,
-                        scores: allPOScore
-                    },
-                    QD: {
-                        avgScore: overAllScore.avgQD,
-                        scores: allQDScore
-                    },
-                    W: {
-                        avgScore: overAllScore.avgW,
-                        scores: allWScore
-                    },
-                },
-                ACBM: {
-                    totalACBM: overAllScore.totalACBM,
-                    TR: {
-                        avgScore: overAllScore.avgTR,
-                        scores: allTRScore
-                    },
-                    TG: {
-                        avgScore: overAllScore.avgTG,
-                        scores: allTGScore
-                    },
-                },
-                GEEBM: {
-                    totalGEEBM: overAllScore.totalGEEBM,
-                    TQBM: {
-                        totalTQBM: overAllScore.totalTQBM,
-                        TG: {
-                            avgScore: overAllScore.avgTG,
-                            scores: allTGScore
-                        },
-                        TE: {
-                            avgScore: overAllScore.avgTE,
-                            scores: allTEScore
-                        },
-                        T: {
-                            avgScore: overAllScore.avgT,
-                            scores: allTScore
-                        },
-                    },
-                    GOVBM: {
-                        totalGOVBM: overAllScore.totalGOVBM,
-                        IP: {
-                            avgScore: overAllScore.avgIP,
-                            scores: allIPScore
-                        },
-                        DD: {
-                            avgScore: overAllScore.avgDD,
-                            scores: allDDScore
-                        },
-                        PO: {
-                            avgScore: overAllScore.avgPO,
-                            scores: allPOScore
-                        },
-                        QD: {
-                            avgScore: overAllScore.avgQD,
-                            scores: allQDScore
-                        },
-                        W: {
-                            avgScore: overAllScore.avgW,
-                            scores: allWScore
-                        },
-                    },
-                    ACBM: {
-                        totalACBM: overAllScore.totalACBM,
-                        TR: {
-                            avgScore: overAllScore.avgTR,
-                            scores: allTRScore
-                        },
-                        TG: {
-                            avgScore: overAllScore.avgTG,
-                            scores: allTGScore
-                        },
-                    },
-                    TRA: allStudentsAttendance,
-                    TV: {
-                        avgScore: overAllScore.avgTV,
-                        scores: teachersEvaluation
-                    },
-                    CP: {
-                        avgScore: overAllScore.avgCP,
-                        scores: allCPScore
-                    },
-                }
+                months: monthlySums2
             }
+            // results.organizations[id] = {
+            //     id,
+            //     name: orgName,
+            //     no_of_trainees: studentsBySchool[id].length,
+            //     no_of_trainers: relatedTeachers.length,
+            //     overall: overAllScore.totalScore,
+            //     months: totalOrgMonths,
+            //     TQBM: {
+            //         totalTQBM: overAllScore.totalTQBM,
+            //         TG: {
+            //             avgScore: overAllScore.avgTG,
+            //             scores: allTGScore
+            //         },
+            //         TE: {
+            //             avgScore: overAllScore.avgTE,
+            //             scores: allTEScore
+            //         },
+            //         T: {
+            //             avgScore: overAllScore.avgT,
+            //             scores: allTScore
+            //         },
+            //     },
+            //     GOVBM: {
+            //         totalGOVBM: overAllScore.totalGOVBM,
+            //         IP: {
+            //             avgScore: overAllScore.avgIP,
+            //             scores: allIPScore
+            //         },
+            //         DD: {
+            //             avgScore: overAllScore.avgDD,
+            //             scores: allDDScore
+            //         },
+            //         PO: {
+            //             avgScore: overAllScore.avgPO,
+            //             scores: allPOScore
+            //         },
+            //         QD: {
+            //             avgScore: overAllScore.avgQD,
+            //             scores: allQDScore
+            //         },
+            //         W: {
+            //             avgScore: overAllScore.avgW,
+            //             scores: allWScore
+            //         },
+            //     },
+            //     ACBM: {
+            //         totalACBM: overAllScore.totalACBM,
+            //         TR: {
+            //             avgScore: overAllScore.avgTR,
+            //             scores: allTRScore
+            //         },
+            //         TG: {
+            //             avgScore: overAllScore.avgTG,
+            //             scores: allTGScore
+            //         },
+            //     },
+            //     GEEBM: {
+            //         totalGEEBM: overAllScore.totalGEEBM,
+            //         TQBM: {
+            //             totalTQBM: overAllScore.totalTQBM,
+            //             TG: {
+            //                 avgScore: overAllScore.avgTG,
+            //                 scores: allTGScore
+            //             },
+            //             TE: {
+            //                 avgScore: overAllScore.avgTE,
+            //                 scores: allTEScore
+            //             },
+            //             T: {
+            //                 avgScore: overAllScore.avgT,
+            //                 scores: allTScore
+            //             },
+            //         },
+            //         GOVBM: {
+            //             totalGOVBM: overAllScore.totalGOVBM,
+            //             IP: {
+            //                 avgScore: overAllScore.avgIP,
+            //                 scores: allIPScore
+            //             },
+            //             DD: {
+            //                 avgScore: overAllScore.avgDD,
+            //                 scores: allDDScore
+            //             },
+            //             PO: {
+            //                 avgScore: overAllScore.avgPO,
+            //                 scores: allPOScore
+            //             },
+            //             QD: {
+            //                 avgScore: overAllScore.avgQD,
+            //                 scores: allQDScore
+            //             },
+            //             W: {
+            //                 avgScore: overAllScore.avgW,
+            //                 scores: allWScore
+            //             },
+            //         },
+            //         ACBM: {
+            //             totalACBM: overAllScore.totalACBM,
+            //             TR: {
+            //                 avgScore: overAllScore.avgTR,
+            //                 scores: allTRScore
+            //             },
+            //             TG: {
+            //                 avgScore: overAllScore.avgTG,
+            //                 scores: allTGScore
+            //             },
+            //         },
+            //         TRA: allStudentsAttendance,
+            //         TV: {
+            //             avgScore: overAllScore.avgTV,
+            //             scores: teachersEvaluation
+            //         },
+            //         CP: {
+            //             avgScore: overAllScore.avgCP,
+            //             scores: allCPScore
+            //         },
+            //     }
+            // }
         }
 
-        results.totalScore = totalScores / staticIds.length;
-        results.months = totalMonths;
-        results.totalTrainees = students.length;
+        results.total.overall = totalScores / staticIds.length;
+        results.total.months = totalMonths;
+        results.total.no_of_trainees = students.length;
         results.totalCurriculums = curriculums.length;
 
         res.json(results);
