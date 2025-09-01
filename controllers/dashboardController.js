@@ -1144,6 +1144,7 @@ exports.watomsFormsScore = async (req, res) => {
                 ar_name: "الكل",
                 no_of_trainees: 0,
                 no_of_trainers: 0,
+                no_of_employees: 0,
                 overall: 0,
                 months: [],
                 TQBM: {
@@ -1263,6 +1264,8 @@ exports.watomsFormsScore = async (req, res) => {
             attributes: ['id', 'user_id', "organization_id"],
             raw: true
         });
+        const totalEmp = employees.filter(emp => staticIds.includes(emp.organization_id));
+        const totalEmpIds = totalEmp.map(s => s.id);
         // get their ids
         const employeeUserIds = employees.map(s => s.user_id);
 
@@ -1271,6 +1274,8 @@ exports.watomsFormsScore = async (req, res) => {
             attributes: ['id', 'employee_id'],
             raw: true
         });
+
+        const totalTrainers = teachers.filter(teacher => totalEmpIds.includes(teacher.employee_id))
 
         // fetch all results (curriculum, individual, environment)
         const [allCurriculumResults, allIndividualResults, allEnvironmentResults] = await Promise.all([
@@ -1619,6 +1624,7 @@ exports.watomsFormsScore = async (req, res) => {
                 name: orgName,
                 no_of_trainees: studentsBySchool[id].length,
                 no_of_trainers: relatedTeachers.length,
+                no_of_employees: relatedEmp.length,
                 overall: overAllScore.totalScore,
                 months: monthlySums2
             }
@@ -1746,6 +1752,8 @@ exports.watomsFormsScore = async (req, res) => {
         results.total.months = totalMonths;
         results.total.no_of_trainees = students.length;
         results.totalCurriculums = curriculums.length;
+        results.total.no_of_employees = totalEmp.length;
+        results.total.no_of_trainers = totalTrainers.length;
 
         res.json(results);
     } catch (error) {
