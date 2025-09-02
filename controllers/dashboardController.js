@@ -1229,7 +1229,7 @@ exports.watomsFormsScore = async (req, res) => {
 
         // fetch curriculum's data related to the selected school's ids
         const organizations = await db.Organization.findAll({
-            attributes: ["id", "name"],
+            attributes: ["id", "name", "location"],
             where: {
                 id: staticIds,
                 type: "school"
@@ -1261,7 +1261,7 @@ exports.watomsFormsScore = async (req, res) => {
 
         // fetch all employees data
         const employees = await db.Employee.findAll({
-            attributes: ['id', 'user_id', "organization_id"],
+            attributes: ['id', 'first_name', 'middle_name', 'last_name', 'user_id', "organization_id", "role_id"],
             raw: true
         });
         const totalEmp = employees.filter(emp => staticIds.includes(emp.organization_id));
@@ -1317,6 +1317,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             // get related employee's data (user_id, id)
             const relatedEmp = employees.filter(emp => emp.organization_id === id);
+            const orgManager = relatedEmp.filter(emp => emp.role_id === 29);
             const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
             const relatedEmpIds = relatedEmp.map(s => s.id);
 
@@ -1526,6 +1527,7 @@ exports.watomsFormsScore = async (req, res) => {
             }
 
             const orgName = organizations.filter(org => org.id === id)[0].name;
+            const orgLocation = organizations.filter(org => org.id === id)[0].location;
 
             totalMonths = monthlySums;
             const totalOrgMonths = orgMonthResults.filter(month => month.monthNumber >= startMonth && month.monthNumber <= currentMonth);
@@ -1622,6 +1624,10 @@ exports.watomsFormsScore = async (req, res) => {
             results.organizations[id] = {
                 id,
                 name: orgName,
+                location: orgLocation || "",
+                managerFirstName: orgManager[0].first_name,
+                managerMiddleName: orgManager[0].middle_name,
+                managerLastName: orgManager[0].last_name,
                 no_of_trainees: studentsBySchool[id].length,
                 no_of_trainers: relatedTeachers.length,
                 no_of_employees: relatedEmp.length,
