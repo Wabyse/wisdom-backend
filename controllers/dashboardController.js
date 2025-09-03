@@ -1321,27 +1321,31 @@ exports.watomsFormsScore = async (req, res) => {
             const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
             const relatedEmpIds = relatedEmp.map(s => s.id);
 
+            const relatedUsers = [...studentUserIds, ...relatedEmpUserIds]
+
             // get related teacher's data (id)
             const relatedTeachers = teachers.filter(teacher => relatedEmpIds.includes(teacher.employee_id));
             const teachersIds = relatedTeachers.map(s => s.id);
 
-            const [allCurriculumReports] = await Promise.all([
+            const allCurriculumReports = await Promise.all([
                 db.CurriculumReport.findAll({
                     attributes: ['id', 'Assessor_id', 'createdAt'],
                     where: { organization_id: id },
+                    order: [['createdAt', 'DESC']],
                     raw: true
                 })
             ]);
 
-            const [allIndividualReports] = await Promise.all([
+            const allIndividualReports = await Promise.all([
                 db.IndividualReport.findAll({
                     attributes: ['id', 'Assessor_id', 'createdAt'],
-                    where: { Assessee_id: relatedEmpUserIds },
+                    where: { Assessee_id: relatedUsers },
+                    order: [['createdAt', 'DESC']],
                     raw: true
                 })
             ]);
 
-            const [allEnvironmentReports] = await Promise.all([
+            const allEnvironmentReports = await Promise.all([
                 db.EnvironmentReports.findAll({
                     attributes: ['id', 'user_id', 'createdAt'],
                     where: { organization_id: id },
@@ -1442,7 +1446,7 @@ exports.watomsFormsScore = async (req, res) => {
                 start,
                 end)
 
-            const resultsThisRun = Array.from({ length: 8 }, (_, i) => {
+            const resultsThisRun = Array.from({ length: 9 }, (_, i) => {
                 const month1 = i + 1;
                 return calculateEachMonthScore(
                     month1,

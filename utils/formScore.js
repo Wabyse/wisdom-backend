@@ -1,6 +1,6 @@
 async function calculateFormScore(userIds, allReports, allResults, questionMap, formIds, forms) {
   // related reports for users
-  const reportRows = (allReports ?? []).filter(r =>
+  const reportRows = (allReports[0] ?? []).filter(r =>
     userIds.includes(r.Assessor_id ?? r.user_id)
   );
   const reportIds = reportRows.map(r => r.id);
@@ -38,45 +38,48 @@ async function calculateFormScore(userIds, allReports, allResults, questionMap, 
     }
   }
 
-  // 5) aggregate per form_id and track latest formDate
-  const formAgg = {}; // form_id -> { scoreSum, countSum, latestDate }
+  const reportAvg = {}; // form_id -> { [reportId]: { score, latestDate } }
   for (const [reportIdStr, scoreSum] of Object.entries(reportScores)) {
     const reportId = Number(reportIdStr);
     const formId = reportIdToFormId[reportId];
     if (formId == null) continue;
 
-    const countSum = reportCounts[reportId];
-    const createdAt = reportIdToDate.get(reportId); // Date or ISO string
+    const countSum = reportCounts[reportId] || 0;
+    if (!countSum) continue; // avoid divide-by-zero
 
-    if (!formAgg[formId]) {
-      formAgg[formId] = { scoreSum: 0, countSum: 0, latestDate: createdAt ?? null };
+    const createdAt = reportIdToDate.get(reportId) ?? null;
+
+    // init containers
+    if (!reportAvg[formId]) reportAvg[formId] = {};
+    if (!reportAvg[formId][reportId]) {
+      reportAvg[formId][reportId] = { score: 0, date: null };
     }
-    formAgg[formId].scoreSum += scoreSum;
-    formAgg[formId].countSum += countSum;
 
-    // keep the most recent createdAt
-    if (createdAt) {
-      const prev = formAgg[formId].latestDate;
-      formAgg[formId].latestDate =
-        (!prev || new Date(createdAt) > new Date(prev)) ? createdAt : prev;
+    // set score
+    reportAvg[formId][reportId].score = scoreSum / countSum;
+
+    // keep the latest date per report (optional)
+    const prev = reportAvg[formId][reportId].date;
+    reportAvg[formId][reportId].date =
+      prev && createdAt ? (new Date(prev) > new Date(createdAt) ? prev : createdAt)
+        : (createdAt || prev);
+  }
+
+  const reportArray = []
+  for (const [formId, reports] of Object.entries(reportAvg)) {
+    const form = formsById.get(formId);
+    for (const [reportId, data] of Object.entries(reports)) {
+      reportArray.push({
+        formId: formId,
+        code: form ? form.code : null,
+        reportId,
+        average_score: data.score,
+        formDate: data.date
+      })
     }
   }
 
-  // 6) build the array (with code and formDate)
-  const formScoreArray = (formIds ?? []).map(id => {
-    const agg = formAgg[id] || { scoreSum: 0, countSum: 0, latestDate: null };
-    const avg = agg.countSum > 0 ? agg.scoreSum / agg.countSum : 0;
-    const form = formsById.get(id);
-
-    return {
-      form_id: id,
-      formDate: agg.latestDate,              // 👈 createdAt of the latest contributing report
-      code: form ? form.code : null,
-      average_score: avg
-    };
-  });
-
-  return formScoreArray;
+  return reportArray;
 }
 
 module.exports = { calculateFormScore };
