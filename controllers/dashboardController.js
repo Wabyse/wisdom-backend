@@ -251,7 +251,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     // } else if (totalScore >= 40) {
     //     color = '#f59e0b';
     // }
-    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm, tqbmtg: (filteredTG * 40), te: (filteredTE * 35), t: (filteredT * 25), ip: (filteredIP * 15), dd: (filteredDD * 30), po: (filteredPO * 20), qd: (filteredQD * 20), w: (filteredW * 15), acbmtg: (filteredTG * 60), tr: (filteredTR * 40), tra: (tra * 0.1), tv: (filteredTV * 0.05), cp: (filteredCP * 0.1) };
+    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm, tqbmtg: (filteredTG * 100), te: (filteredTE * 100), t: (filteredT * 100), ip: (filteredIP * 100), dd: (filteredDD * 100), po: (filteredPO * 100), qd: (filteredQD * 100), w: (filteredW * 100), acbmtg: (filteredTG * 100), tr: (filteredTR * 100), tra: (tra), tv: (filteredTV), cp: (filteredCP) };
 }
 
 // --- SUMMARY ENDPOINT ---
