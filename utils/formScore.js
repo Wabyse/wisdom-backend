@@ -67,7 +67,7 @@ async function calculateFormScore(userIds, allReports, allResults, questionMap, 
 
   const reportArray = []
   for (const [formId, reports] of Object.entries(reportAvg)) {
-    const form = formsById.get(formId);
+    const form = formsById.get(Number(formId));
     for (const [reportId, data] of Object.entries(reports)) {
       reportArray.push({
         formId: formId,

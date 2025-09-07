@@ -251,7 +251,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     // } else if (totalScore >= 40) {
     //     color = '#f59e0b';
     // }
-    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm, tqbmtg: (filteredTG * 100), te: (filteredTE * 100), t: (filteredT * 100), ip: (filteredIP * 100), dd: (filteredDD * 100), po: (filteredPO * 100), qd: (filteredQD * 100), w: (filteredW * 100), acbmtg: (filteredTG * 100), tr: (filteredTR * 100), tra: (tra), tv: (filteredTV), cp: (filteredCP) };
+    return { month: months[month - 1], monthNumber: (month), performance: totalScore, tqbm, govbm, acbm, geebm, tqbmtg: (filteredTG * 100), te: (filteredTE * 100), t: (filteredT * 100), ip: (filteredIP * 100), dd: (filteredDD * 100), po: (filteredPO * 100), qd: (filteredQD * 100), w: (filteredW * 100), acbmtg: (filteredTG * 100), tr: (filteredTR * 100), tra: (tra), tv: (filteredTV), cp: (filteredCP * 100) };
 }
 
 // --- SUMMARY ENDPOINT ---
@@ -1605,7 +1605,7 @@ exports.watomsFormsScore = async (req, res) => {
             TQBM.totalTQBM += overAllScore.totalTQBM;
             TQBM.TG.avgScore += overAllScore.avgTG;
             TQBM.TG.scores.push(...allTGScore);
-            TQBM.TE.avgScore += overAllScore.avgTE;
+            TQBM.TE.avgScore += overAllScore.avgTE; 
             TQBM.TE.scores.push(...allTEScore);
             TQBM.T.avgScore += overAllScore.avgT;
             TQBM.T.scores.push(...allTScore);
