@@ -13,5 +13,6 @@ router.get('/wisdom/center/:id/evaluation-breakdown', dashboardController.wisdom
 router.get('/wisdom/center/:organizationId/annual-performance', dashboardController.getAnnualPerformanceData);
 router.get('/center/:organizationId/project-units-ranking', dashboardController.getProjectUnitsRanking);
 router.get('/wisdom/center/:organizationId/project-units-ranking', dashboardController.getProjectUnitsRanking);
+router.get('/demo/forms/score', dashboardController.demoFormsScore);
 
 module.exports = router;

@@ -6,7 +6,6 @@ const { roundNumber } = require('../utils/roundNumber');
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
 const months = ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'];
-const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, overall: 0, TQBM: { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } }, GOVBM: { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } }, ACBM: { totalACBM: 0, TG: { avgScore: 0, scores: [] }, TR: { avgScore: 0, scores: [] } }, GEEBM: { totalGEEBM: 0, TQBM: 0, GOVBM: 0, ACBM: 0, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } } }));
 // Helper to calculate evaluation for a single organization (center)
 async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     let loc = org.location;
@@ -1130,7 +1129,7 @@ exports.watomsFormsScore = async (req, res) => {
         // static watoms organizations ids
         const staticIds = [4, 5, 7, 8, 9];
         const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
-
+        const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, overall: 0, TQBM: { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } }, GOVBM: { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } }, ACBM: { totalACBM: 0, TG: { avgScore: 0, scores: [] }, TR: { avgScore: 0, scores: [] } }, GEEBM: { totalGEEBM: 0, TQBM: 0, GOVBM: 0, ACBM: 0, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } } }));
         let TQBM = { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } };
         let GOVBM = { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } };
         let ACBM = { totalACBM: 0, TR: { avgScore: 0, scores: [] }, TG: { avgScore: 0, scores: [] } };
@@ -1605,7 +1604,7 @@ exports.watomsFormsScore = async (req, res) => {
             TQBM.totalTQBM += overAllScore.totalTQBM;
             TQBM.TG.avgScore += overAllScore.avgTG;
             TQBM.TG.scores.push(...allTGScore);
-            TQBM.TE.avgScore += overAllScore.avgTE; 
+            TQBM.TE.avgScore += overAllScore.avgTE;
             TQBM.TE.scores.push(...allTEScore);
             TQBM.T.avgScore += overAllScore.avgT;
             TQBM.T.scores.push(...allTScore);
@@ -3325,6 +3324,537 @@ exports.getProjectUnitsRanking = async (req, res) => {
         console.error('Error getting project units ranking:', error);
         res.status(500).json({
             success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+};
+
+exports.demoFormsScore = async (req, res) => {
+    try {
+        // static watoms organizations ids
+        const staticIds = [14];
+        const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
+        const monthlyTotalsDemo = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, overall: 0, TQBM: { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } }, GOVBM: { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } }, ACBM: { totalACBM: 0, TG: { avgScore: 0, scores: [] }, TR: { avgScore: 0, scores: [] } }, GEEBM: { totalGEEBM: 0, TQBM: 0, GOVBM: 0, ACBM: 0, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } } }));
+        let TQBM = { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } };
+        let GOVBM = { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } };
+        let ACBM = { totalACBM: 0, TR: { avgScore: 0, scores: [] }, TG: { avgScore: 0, scores: [] } };
+
+        // final result's variable
+        const results = {
+            totalCurriculums: 0,
+            total: {
+                id: "All",
+                en_name: "All",
+                ar_name: "الكل",
+                no_of_trainees: 0,
+                no_of_trainers: 0,
+                no_of_employees: 0,
+                overall: 0,
+                months: [],
+                TQBM: {
+                    totalTQBM: 0,
+                    TG: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    TE: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    T: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                GOVBM: {
+                    totalGOVBM: 0,
+                    IP: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    DD: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    PO: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    QD: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    W: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                ACBM: {
+                    totalACBM: 0,
+                    TR: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    TG: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                },
+                GEEBM: {
+                    totalGEEBM: 0,
+                    TQBM,
+                    GOVBM,
+                    ACBM,
+                    TRA: 0,
+                    TV: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    CP: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                }
+            },
+            organizations: {}
+        };
+
+        let totalScores = 0;
+        let GEEBM = { totalGEEBM: 0, TQBM, GOVBM, ACBM, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, scores: [] } }
+
+        let totalMonths = [];
+
+        // get current Month and Year
+        const now = new Date();
+        const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+        const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+
+        // fetch curriculum's data related to the selected school's ids
+        const organizations = await db.Organization.findAll({
+            attributes: ["id", "name", "location"],
+            where: {
+                id: staticIds,
+                type: "school"
+            },
+            raw: true
+        });
+
+        // fetch curriculum's data related to the selected school's ids
+        const curriculums = await db.Curriculum.findAll({
+            attributes: ["id"],
+            where: {
+                id: { [Op.notIn]: staticCurrIds }
+            },
+            raw: true
+        });
+
+        // fetch student's data related to the selected school's ids
+        const students = await db.Student.findAll({
+            attributes: ['id', 'user_id', 'school_id'],
+            where: { school_id: staticIds },
+            raw: true
+        });
+
+        // organize the students by school
+        const studentsBySchool = students.reduce((acc, s) => {
+            (acc[s.school_id] ||= []).push(s);
+            return acc;
+        }, {});
+
+        // fetch all employees data
+        const employees = await db.Employee.findAll({
+            attributes: ['id', 'first_name', 'middle_name', 'last_name', 'user_id', "organization_id", "role_id"],
+            raw: true
+        });
+        const totalEmp = employees.filter(emp => staticIds.includes(emp.organization_id));
+        const totalEmpIds = totalEmp.map(s => s.id);
+        // get their ids
+        const employeeUserIds = employees.map(s => s.user_id);
+
+        // fetch all teacher's data
+        const teachers = await db.Teacher.findAll({
+            attributes: ['id', 'employee_id'],
+            raw: true
+        });
+
+        const totalTrainers = teachers.filter(teacher => totalEmpIds.includes(teacher.employee_id))
+
+        // fetch all results (curriculum, individual, environment)
+        const [allCurriculumResults, allIndividualResults, allEnvironmentResults] = await Promise.all([
+            db.CurriculumResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            }),
+            db.QuestionResult.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            }),
+            db.EnvironmentResults.findAll({
+                attributes: ['report_id', 'question_id', 'score'],
+                raw: true
+            })
+        ]);
+
+        // fetch all form's details
+        const [forms, fields, subFields, questions] = await Promise.all([
+            db.Form.findAll({ attributes: ['id', 'code'], where: { en_name: "test" }, raw: true }),
+            db.Field.findAll({ attributes: ['id', 'form_id'], raw: true }),
+            db.SubField.findAll({ attributes: ['id', 'field_id'], raw: true }),
+            db.Question.findAll({ attributes: ['id', 'max_score', 'sub_field_id'], raw: true }),
+        ]);
+
+        const studentsAttendance = await db.studentAttendance.findAll({
+            attributes: ['status', 'student_id'],
+            raw: true
+        });
+
+        // looping though every organization
+        for (const id of staticIds) {
+
+            const schoolStudents = studentsBySchool[id] || [];
+            const studentIds = schoolStudents.map(s => s.id);
+            const studentUserIds = schoolStudents.map(s => s.user_id);
+
+            const usersIds = [...studentUserIds, ...employeeUserIds];
+
+            // get related employee's data (user_id, id)
+            const relatedEmp = employees.filter(emp => emp.organization_id === id);
+            const orgManager = relatedEmp.filter(emp => emp.role_id === 29);
+            const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
+            const relatedEmpIds = relatedEmp.map(s => s.id);
+
+            const relatedUsers = [...studentUserIds, ...relatedEmpUserIds]
+
+            // get related teacher's data (id)
+            const relatedTeachers = teachers.filter(teacher => relatedEmpIds.includes(teacher.employee_id));
+            const teachersIds = relatedTeachers.map(s => s.id);
+
+            const allCurriculumReports = await Promise.all([
+                db.CurriculumReport.findAll({
+                    attributes: ['id', 'Assessor_id', 'createdAt'],
+                    where: { organization_id: id },
+                    order: [['createdAt', 'DESC']],
+                    raw: true
+                })
+            ]);
+
+            const allIndividualReports = await Promise.all([
+                db.IndividualReport.findAll({
+                    attributes: ['id', 'Assessor_id', 'createdAt'],
+                    where: { Assessee_id: relatedUsers },
+                    order: [['createdAt', 'DESC']],
+                    raw: true
+                })
+            ]);
+
+            const allEnvironmentReports = await Promise.all([
+                db.EnvironmentReports.findAll({
+                    attributes: ['id', 'user_id', 'createdAt'],
+                    where: { organization_id: id },
+                    raw: true
+                })
+            ]);
+
+            const fieldMap = new Map(fields.map(f => [f.id, f.form_id]));
+            const subFieldMap = new Map(subFields.map(sf => [sf.id, fieldMap.get(sf.field_id)]));
+
+            const formsTG = forms.filter(f => f.code.endsWith('| TG'));
+            const formTGIds = formsTG.map(f => f.id);
+
+            const formsTE = forms.filter(f => f.code.endsWith('| TE'));
+            const formTEIds = formsTE.map(f => f.id);
+
+            const formsT = forms.filter(f => f.code.endsWith('| T'));
+            const formTIds = formsT.map(f => f.id);
+
+            const formsIP = forms.filter(f => f.code.endsWith('| IP'));
+            const formIPIds = formsIP.map(f => f.id);
+
+            const formsDD = forms.filter(f => f.code.endsWith('| DD'));
+            const formDDIds = formsDD.map(f => f.id);
+
+            const formsPO = forms.filter(f => f.code.endsWith('| PO'));
+            const formPOIds = formsPO.map(f => f.id);
+
+            const formsQD = forms.filter(f => f.code.endsWith('| QD'));
+            const formQDIds = formsQD.map(f => f.id);
+
+            const formsW = forms.filter(f => f.code.endsWith('| W'));
+            const formWIds = formsW.map(f => f.id);
+
+            const formsTR = forms.filter(f => f.code.endsWith('| TR'));
+            const formTRIds = formsTR.map(f => f.id);
+
+            const formsCP = forms.filter(f => f.code.endsWith('| CP'));
+            const formCPIds = formsCP.map(f => f.id);
+
+            const questionMaps = { TG: {}, TE: {}, T: {}, IP: {}, DD: {}, PO: {}, QD: {}, W: {}, TR: {}, CP: {} };
+
+            questions.forEach(q => {
+                const formId = subFieldMap.get(q.sub_field_id);
+                if (formTGIds.includes(formId)) questionMaps.TG[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTEIds.includes(formId)) questionMaps.TE[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTIds.includes(formId)) questionMaps.T[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formIPIds.includes(formId)) questionMaps.IP[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formDDIds.includes(formId)) questionMaps.DD[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formPOIds.includes(formId)) questionMaps.PO[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formQDIds.includes(formId)) questionMaps.QD[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formWIds.includes(formId)) questionMaps.W[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formTRIds.includes(formId)) questionMaps.TR[q.id] = { form_id: formId, max_score: q.max_score };
+                else if (formCPIds.includes(formId)) questionMaps.CP[q.id] = { form_id: formId, max_score: q.max_score };
+            });
+
+            const [
+                allTGScore, allTEScore, allTScore, allIPScore,
+                allDDScore, allPOScore, allQDScore, allWScore,
+                allTRScore, allCPScore
+            ] = await Promise.all([
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TG, formTGIds, formsTG),
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TE, formTEIds, formsTE),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.IP, formIPIds, formsIP),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DD, formDDIds, formsDD),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.PO, formPOIds, formsPO),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.QD, formQDIds, formsQD),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.TR, formTRIds, formsTR),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.CP, formCPIds, formsCP)
+            ]);
+
+            const relatedSTA = studentsAttendance.filter(sta => studentIds.includes(sta.student_id))
+
+            const attendedCount = relatedSTA.filter(s => s.status === 'attend').length;
+            const allStudentsAttendance = relatedSTA.length > 0 ? attendedCount / relatedSTA.length : 0;
+
+            const teachersEvaluation = await db.TeacherEvaluation.findAll({
+                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result'],
+                where: { teacher_id: teachersIds },
+                raw: true
+            });
+
+            const overAllScore = calculateOverAllScore(
+                allTGScore,
+                allTEScore,
+                allTScore,
+                allIPScore,
+                allDDScore,
+                allPOScore,
+                allQDScore,
+                allWScore,
+                allTRScore,
+                allStudentsAttendance,
+                teachersEvaluation,
+                allCPScore,
+                start,
+                end)
+
+            const resultsThisRun = Array.from({ length: 9 }, (_, i) => {
+                const month1 = i + 1;
+                return calculateEachMonthScore(
+                    month1,
+                    allTGScore,
+                    allTEScore,
+                    allTScore,
+                    allIPScore,
+                    allDDScore,
+                    allPOScore,
+                    allQDScore,
+                    allWScore,
+                    allTRScore,
+                    allStudentsAttendance,
+                    teachersEvaluation,
+                    allCPScore
+                );
+            });
+
+            resultsThisRun.forEach((r, i) => {
+                monthlyTotalsDemo[i].sum += r.performance; // r.performance is your totalScore for that month
+                monthlyTotalsDemo[i].count += 1;
+                monthlyTotalsDemo[i].TQBM.totalTQBM += r.tqbm;
+                monthlyTotalsDemo[i].TQBM.TG.avgScore += r.tqbmtg;
+                monthlyTotalsDemo[i].TQBM.TE.avgScore += r.te;
+                monthlyTotalsDemo[i].TQBM.T.avgScore += r.t;
+                monthlyTotalsDemo[i].GOVBM.totalGOVBM += r.govbm;
+                monthlyTotalsDemo[i].GOVBM.IP.avgScore += r.ip;
+                monthlyTotalsDemo[i].GOVBM.DD.avgScore += r.dd;
+                monthlyTotalsDemo[i].GOVBM.PO.avgScore += r.po;
+                monthlyTotalsDemo[i].GOVBM.QD.avgScore += r.qd;
+                monthlyTotalsDemo[i].GOVBM.W.avgScore += r.w;
+                monthlyTotalsDemo[i].ACBM.totalACBM += r.acbm;
+                monthlyTotalsDemo[i].ACBM.TG.avgScore += r.acbmtg;
+                monthlyTotalsDemo[i].ACBM.TR.avgScore += r.tr;
+                monthlyTotalsDemo[i].GEEBM.totalGEEBM += r.geebm;
+                monthlyTotalsDemo[i].GEEBM.TQBM += r.tqbm;
+                monthlyTotalsDemo[i].GEEBM.GOVBM += r.govbm;
+                monthlyTotalsDemo[i].GEEBM.ACBM += r.acbm;
+                monthlyTotalsDemo[i].GEEBM.TRA += r.tra;
+                monthlyTotalsDemo[i].GEEBM.TV.avgScore += r.tv;
+                monthlyTotalsDemo[i].GEEBM.CP.avgScore += r.cp;
+            });
+
+            const orgMonthResults = resultsThisRun;
+
+            const startMonth = (currentYear === 2025) ? 4 : 1;
+            // const endMonth = (year === currentYear) ? currentMonth : 12;
+            const endMonth = currentMonth;
+
+            const monthlySums = [];
+            for (let m = startMonth; m <= endMonth; m++) {
+                const i = m - 1;
+                const perf = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].sum / monthlyTotalsDemo[i].count) : 0;
+                const TQBM = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].TQBM.totalTQBM / monthlyTotalsDemo[i].count) : 0;
+                const TQBMTG = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].TQBM.TG.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const TQBMTE = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].TQBM.TE.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const TQBMT = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].TQBM.T.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GOVBM = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.totalGOVBM / monthlyTotalsDemo[i].count) : 0;
+                const GOVBMIP = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.IP.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GOVBMDD = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.DD.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GOVBMPO = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.PO.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GOVBMQD = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.QD.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GOVBMW = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GOVBM.W.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const ACBM = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].ACBM.totalACBM / monthlyTotalsDemo[i].count) : 0;
+                const ACBMTG = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].ACBM.TG.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const ACBMTR = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].ACBM.TR.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GEEBM = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GEEBM.totalGEEBM / monthlyTotalsDemo[i].count) : 0;
+                const GEEBMTRA = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GEEBM.TRA / monthlyTotalsDemo[i].count) : 0;
+                const GEEBMTTV = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GEEBM.TV.avgScore / monthlyTotalsDemo[i].count) : 0;
+                const GEEBMTCP = monthlyTotalsDemo[i].count ? roundNumber(monthlyTotalsDemo[i].GEEBM.CP.avgScore / monthlyTotalsDemo[i].count) : 0;
+                monthlySums.push({
+                    month: months[i],
+                    monthNumber: m,
+                    performance: perf,
+                    TQBM: { totalTQBM: TQBM, TG: { avgScore: TQBMTG }, TE: { avgScore: TQBMTE }, T: { avgScore: TQBMT } },
+                    GOVBM: { totalGOVBM: GOVBM, IP: { avgScore: GOVBMIP }, DD: { avgScore: GOVBMDD }, PO: { avgScore: GOVBMPO }, QD: { avgScore: GOVBMQD }, W: { avgScore: GOVBMW } },
+                    ACBM: { totalACBM: ACBM, TG: { avgScore: ACBMTG }, TR: { avgScore: ACBMTR } },
+                    GEEBM: { totalGEEBM: GEEBM, TQBM: roundNumber(TQBM * 0.3), GOVBM: roundNumber(GOVBM * 0.25), ACBM: roundNumber(ACBM * 0.2), TRA: GEEBMTRA, TV: { avgScore: GEEBMTTV }, CP: { avgScore: GEEBMTCP } },
+                    color: '#ef4444'
+                });
+            }
+
+            const orgName = organizations.filter(org => org.id === id)[0].name;
+            const orgLocation = organizations.filter(org => org.id === id)[0].location;
+
+            totalMonths = monthlySums;
+            const totalOrgMonths = orgMonthResults.filter(month => month.monthNumber >= startMonth && month.monthNumber <= currentMonth);
+            const monthlySums2 = [];
+
+            function roundNumber(value) {
+                return Math.round(value * 100) / 100;
+            }
+
+            for (let m = startMonth; m <= endMonth; m++) {
+                const currentMonthData = totalOrgMonths.find(month => month.monthNumber === m);
+                if (!currentMonthData) continue;
+
+                const perf = roundNumber(currentMonthData.performance || 0);
+                const TQBM = roundNumber(currentMonthData.tqbm || 0);
+                const TQBMTG = roundNumber(currentMonthData.tqbmtg || 0);
+                const TQBMTE = roundNumber(currentMonthData.te || 0);
+                const TQBMT = roundNumber(currentMonthData.t || 0);
+                const GOVBM = roundNumber(currentMonthData.govbm || 0);
+                const GOVBMIP = roundNumber(currentMonthData.ip || 0);
+                const GOVBMDD = roundNumber(currentMonthData.dd || 0);
+                const GOVBMPO = roundNumber(currentMonthData.po || 0);
+                const GOVBMQD = roundNumber(currentMonthData.qd || 0);
+                const GOVBMW = roundNumber(currentMonthData.w || 0);
+                const ACBM = roundNumber(currentMonthData.acbm || 0);
+                const ACBMTG = roundNumber(currentMonthData.acbmtg || 0);
+                const ACBMTR = roundNumber(currentMonthData.tr || 0);
+                const GEEBM = roundNumber(currentMonthData.geebm || 0);
+                const GEEBMTRA = roundNumber(currentMonthData.tra || 0);
+                const GEEBMTTV = roundNumber(currentMonthData.tv || 0);
+                const GEEBMTCP = roundNumber(currentMonthData.cp || 0);
+
+                monthlySums2.push({
+                    month: currentMonthData.month,
+                    monthNumber: m,
+                    performance: perf,
+                    TQBM: {
+                        totalTQBM: TQBM,
+                        TG: { avgScore: TQBMTG },
+                        TE: { avgScore: TQBMTE },
+                        T: { avgScore: TQBMT }
+                    },
+                    GOVBM: {
+                        totalGOVBM: GOVBM,
+                        IP: { avgScore: GOVBMIP },
+                        DD: { avgScore: GOVBMDD },
+                        PO: { avgScore: GOVBMPO },
+                        QD: { avgScore: GOVBMQD },
+                        W: { avgScore: GOVBMW }
+                    },
+                    ACBM: {
+                        totalACBM: ACBM,
+                        TG: { avgScore: ACBMTG },
+                        TR: { avgScore: ACBMTR }
+                    },
+                    GEEBM: {
+                        totalGEEBM: GEEBM,
+                        TQBM: roundNumber(TQBM * 0.3),
+                        GOVBM: roundNumber(GOVBM * 0.25),
+                        ACBM: roundNumber(ACBM * 0.2),
+                        TRA: GEEBMTRA,
+                        TV: { avgScore: GEEBMTTV },
+                        CP: { avgScore: GEEBMTCP }
+                    },
+                    color: '#ef4444'
+                });
+            }
+
+            // Save to result object
+            totalScores += overAllScore.totalScore;
+            TQBM.totalTQBM += overAllScore.totalTQBM;
+            TQBM.TG.avgScore += overAllScore.avgTG;
+            TQBM.TG.scores.push(...allTGScore);
+            TQBM.TE.avgScore += overAllScore.avgTE;
+            TQBM.TE.scores.push(...allTEScore);
+            TQBM.T.avgScore += overAllScore.avgT;
+            TQBM.T.scores.push(...allTScore);
+            GOVBM.totalGOVBM += overAllScore.totalGOVBM;
+            GOVBM.IP.avgScore += overAllScore.avgIP;
+            GOVBM.IP.scores.push(...allIPScore);
+            GOVBM.DD.avgScore += overAllScore.avgDD;
+            GOVBM.DD.scores.push(...allDDScore);
+            GOVBM.PO.avgScore += overAllScore.avgPO;
+            GOVBM.PO.scores.push(...allPOScore);
+            GOVBM.QD.avgScore += overAllScore.avgQD;
+            GOVBM.QD.scores.push(...allQDScore);
+            GOVBM.W.avgScore += overAllScore.avgW;
+            GOVBM.W.scores.push(...allWScore);
+            ACBM.totalACBM += overAllScore.totalACBM;
+            ACBM.TG.avgScore += overAllScore.avgTG;
+            ACBM.TG.scores.push(...allTGScore);
+            ACBM.TR.avgScore += overAllScore.avgTR;
+            ACBM.TR.scores.push(...allTRScore);
+            results.organizations[id] = {
+                id,
+                name: orgName,
+                location: orgLocation || "",
+                managerFirstName: orgManager[0]?.first_name,
+                managerMiddleName: orgManager[0]?.middle_name,
+                managerLastName: orgManager[0]?.last_name,
+                no_of_trainees: studentsBySchool[id]?.length,
+                no_of_trainers: relatedTeachers?.length,
+                no_of_employees: relatedEmp?.length,
+                overall: overAllScore?.totalScore,
+                months: monthlySums2
+            }
+        }
+
+        results.total.overall = totalScores / staticIds.length;
+        results.total.months = totalMonths;
+        results.total.no_of_trainees = students.length;
+        results.totalCurriculums = curriculums.length;
+        results.total.no_of_employees = totalEmp.length;
+        results.total.no_of_trainers = totalTrainers.length;
+
+        res.json(results);
+    } catch (error) {
+        console.error('Error in watomsFormsScore:', error);
+        res.status(500).json({
             message: 'Server error',
             error: error.message
         });
