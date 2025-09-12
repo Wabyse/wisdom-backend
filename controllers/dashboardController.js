@@ -173,7 +173,16 @@ function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, st
     const filteredQD = qd.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
     const filteredW = w.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
     const filteredTR = tr.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
-    const filteredTV = tv.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
+    let filteredTV = 0
+    tv.forEach(scores => {
+        filteredTV += scores.first_result;
+        filteredTV += scores.second_result;
+        filteredTV += scores.third_result;
+        filteredTV += scores.fourth_result;
+        filteredTV += scores.fifth_result;
+        filteredTV += scores.sixth_result;
+        filteredTV /= 6
+    })
     const filteredCP = cp.filter(test => test.formDate !== null && test.formDate >= start && test.formDate < end);
 
     const tgScore = avg(filteredTG);
@@ -185,7 +194,8 @@ function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, st
     const qdScore = avg(filteredQD);
     const wScore = avg(filteredW);
     const trScore = avg(filteredTR);
-    const tvScore = avg(filteredTV);
+    const tvScore = filteredTV;
+
     const cpScore = avg(filteredCP);
     const tqbm = (tgScore * 40) + (teScore * 35) + (tScore * 25);
     const govbm = (ipScore * 15) + (ddScore * 30) + (poScore * 20) + (qdScore * 20) + (wScore * 15);
@@ -226,6 +236,30 @@ function filterPerMonth(month, data) {
     return 0;
 }
 
+function filterTVPerMonth(month, data) {
+    const year = new Date().getFullYear();
+    const filteredData = data.filter(item => {
+        const d = new Date(item.createdAt);
+        return d.getFullYear() === year && (d.getMonth()) === (month - 1);
+    });
+
+    if (filteredData?.length !== 0) {
+        let filteredTV = 0
+        filteredData.forEach(scores => {
+            filteredTV += scores.first_result;
+            filteredTV += scores.second_result;
+            filteredTV += scores.third_result;
+            filteredTV += scores.fourth_result;
+            filteredTV += scores.fifth_result;
+            filteredTV += scores.sixth_result;
+            filteredTV /= 6
+        })
+        return filteredTV;
+    }
+
+    return 0;
+}
+
 function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp) {
 
     const filteredTG = filterPerMonth(month, tg);
@@ -237,7 +271,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     const filteredQD = filterPerMonth(month, qd);
     const filteredW = filterPerMonth(month, w);
     const filteredTR = filterPerMonth(month, tr);
-    const filteredTV = filterPerMonth(month, tv);
+    const filteredTV = filterTVPerMonth(month, tv);
     const filteredCP = filterPerMonth(month, cp);
     const tqbm = (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25);
     const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
@@ -1424,7 +1458,7 @@ exports.watomsFormsScore = async (req, res) => {
             const allStudentsAttendance = relatedSTA.length > 0 ? attendedCount / relatedSTA.length : 0;
 
             const teachersEvaluation = await db.TeacherEvaluation.findAll({
-                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result'],
+                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result', 'createdAt'],
                 where: { teacher_id: teachersIds },
                 raw: true
             });
@@ -3630,7 +3664,7 @@ exports.demoFormsScore = async (req, res) => {
             const allStudentsAttendance = relatedSTA.length > 0 ? attendedCount / relatedSTA.length : 0;
 
             const teachersEvaluation = await db.TeacherEvaluation.findAll({
-                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result'],
+                attributes: ['first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result', 'createdAt'],
                 where: { teacher_id: teachersIds },
                 raw: true
             });
@@ -3847,7 +3881,7 @@ exports.demoFormsScore = async (req, res) => {
         results.total.overall = totalScores / staticIds.length;
         results.total.months = totalMonths;
         results.total.no_of_trainees = students.length;
-        results.totalCurriculums = curriculums.length;
+        results.totalCurriculums = 1;
         results.total.no_of_employees = totalEmp.length;
         results.total.no_of_trainers = totalTrainers.length;
 
