@@ -72,6 +72,7 @@ async function calculateFormScore(userIds, allReports, allResults, questionMap, 
       reportArray.push({
         formId: formId,
         code: form ? form.code : null,
+        name: form ? form.ar_name : null,
         reportId,
         average_score: data.score,
         formDate: data.date
