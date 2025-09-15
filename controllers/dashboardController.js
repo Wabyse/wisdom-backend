@@ -263,6 +263,20 @@ function filterPerMonth(month, data) {
     return 0;
 }
 
+function filterEachPerMonth(month, data) {
+    const year = new Date().getFullYear();
+    const filteredData = data.filter(item => {
+        const d = new Date(item.formDate);
+        return d.getFullYear() === year && (d.getMonth()) === (month - 1);
+    });
+
+    if (filteredData?.length !== 0) {
+        return filteredData;
+    }
+
+    return [];
+}
+
 function filterCodePerMonth(month, data) {
     const year = new Date().getFullYear();
     const filteredData = data.filter(item => {
@@ -304,25 +318,35 @@ function filterTVPerMonth(month, data) {
 function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp) {
 
     const filteredTG = filterPerMonth(month, tg);
+    const filteredTGEach = filterEachPerMonth(month, tg);
     const filteredTGCodes = filterCodePerMonth(month, tg);
     const filteredTE = filterPerMonth(month, te);
+    const filteredTEEach = filterEachPerMonth(month, te);
     const filteredTECodes = filterCodePerMonth(month, te);
     const filteredT = filterPerMonth(month, t);
+    const filteredTEach = filterEachPerMonth(month, t);
     const filteredTCodes = filterCodePerMonth(month, t);
     const filteredIP = filterPerMonth(month, ip);
+    const filteredIPEach = filterEachPerMonth(month, ip);
     const filteredIPCodes = filterCodePerMonth(month, ip);
     const filteredDD = filterPerMonth(month, dd);
+    const filteredDDEach = filterEachPerMonth(month, dd);
     const filteredDDCodes = filterCodePerMonth(month, dd);
     const filteredPO = filterPerMonth(month, po);
+    const filteredPOEach = filterEachPerMonth(month, po);
     const filteredPOCodes = filterCodePerMonth(month, po);
     const filteredQD = filterPerMonth(month, qd);
+    const filteredQDEach = filterEachPerMonth(month, qd);
     const filteredQDCodes = filterCodePerMonth(month, qd);
     const filteredW = filterPerMonth(month, w);
+    const filteredWEach = filterEachPerMonth(month, w);
     const filteredWCodes = filterCodePerMonth(month, w);
     const filteredTR = filterPerMonth(month, tr);
+    const filteredTREach = filterEachPerMonth(month, tr);
     const filteredTRCodes = filterCodePerMonth(month, tr);
     const filteredTV = filterTVPerMonth(month, tv);
     const filteredCP = filterPerMonth(month, cp);
+    const filteredCPEach = filterEachPerMonth(month, cp);
     const filteredCPCodes = filterCodePerMonth(month, cp);
     const tqbm = (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25);
     const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
@@ -347,7 +371,11 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
         tgCodes: filteredTGCodes, teCodes: filteredTECodes, tCodes: filteredTCodes,
         ipCodes: filteredIPCodes, ddCodes: filteredDDCodes, poCodes: filteredPOCodes, qdCodes: filteredQDCodes, wCodes: filteredWCodes,
         trCodes: filteredTRCodes,
-        cpCodes: filteredCPCodes
+        cpCodes: filteredCPCodes,
+        eachTG: filteredTGEach, eachTE: filteredTEEach, eachT: filteredTEach,
+        eachIP: filteredIPEach, eachDD: filteredDDEach, eachPO: filteredPOEach, eachQD: filteredQDEach, eachW: filteredWEach,
+        eachTR: filteredTREach,
+        eachCP: filteredCPEach
     };
 }
 
@@ -1227,7 +1255,40 @@ exports.watomsFormsScore = async (req, res) => {
         // static watoms organizations ids
         const staticIds = [4, 5, 7, 8, 9];
         const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
-        const monthlyTotals = Array.from({ length: 12 }, () => ({ sum: 0, count: 0, overall: 0, TQBM: { totalTQBM: 0, TG: { avgScore: 0, codeScores: [], scores: [] }, TE: { avgScore: 0, codeScores: [], scores: [] }, T: { avgScore: 0, codeScores: [], scores: [] } }, GOVBM: { totalGOVBM: 0, IP: { avgScore: 0, codeScores: [], scores: [] }, DD: { avgScore: 0, codeScores: [], scores: [] }, PO: { avgScore: 0, codeScores: [], scores: [] }, QD: { avgScore: 0, codeScores: [], scores: [] }, W: { avgScore: 0, codeScores: [], scores: [] } }, ACBM: { totalACBM: 0, TG: { avgScore: 0, codeScores: [], scores: [] }, TR: { avgScore: 0, codeScores: [], scores: [] } }, GEEBM: { totalGEEBM: 0, TQBM: 0, GOVBM: 0, ACBM: 0, TRA: 0, TV: { avgScore: 0, scores: [] }, CP: { avgScore: 0, codeScores: [], scores: [] } } }));
+        const monthlyTotals = Array.from({ length: 12 }, () => ({
+            sum: 0,
+            count: 0,
+            overall: 0,
+            TQBM: {
+                totalTQBM: 0,
+                TG: { avgScore: 0, codeScores: [], scores: [] },
+                TE: { avgScore: 0, codeScores: [], scores: [] },
+                T: { avgScore: 0, codeScores: [], scores: [] }
+            },
+            GOVBM: {
+                totalGOVBM: 0,
+                IP: { avgScore: 0, codeScores: [], scores: [] },
+                DD: { avgScore: 0, codeScores: [], scores: [] },
+                PO: { avgScore: 0, codeScores: [], scores: [] },
+                QD: { avgScore: 0, codeScores: [], scores: [] },
+                W: { avgScore: 0, codeScores: [], scores: [] }
+            },
+            ACBM: {
+                totalACBM: 0,
+                TG: { avgScore: 0, codeScores: [], scores: [] },
+                TR: { avgScore: 0, codeScores: [], scores: [] }
+            },
+            GEEBM: {
+                totalGEEBM: 0,
+                TQBM: 0,
+                GOVBM: 0,
+                ACBM: 0,
+                TRA: 0,
+                TV: { avgScore: 0, scores: [] },
+                CP: { avgScore: 0, codeScores: [], scores: [] }
+            }
+        }));
+        // why ?
         let TQBM = { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } };
         let GOVBM = { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } };
         let ACBM = { totalACBM: 0, TR: { avgScore: 0, scores: [] }, TG: { avgScore: 0, scores: [] } };
@@ -1324,7 +1385,7 @@ exports.watomsFormsScore = async (req, res) => {
         const currentMonth = now.getMonth() + 1;
         const currentYear = now.getFullYear();
 
-        // fetch curriculum's data related to the selected school's ids
+        // fetch organization's data that is school type
         const organizations = await db.Organization.findAll({
             attributes: ["id", "name", "location"],
             where: {
@@ -1406,13 +1467,14 @@ exports.watomsFormsScore = async (req, res) => {
         // looping though every organization
         for (const id of staticIds) {
 
+            // related students to selected school
             const schoolStudents = studentsBySchool[id] || [];
             const studentIds = schoolStudents.map(s => s.id);
             const studentUserIds = schoolStudents.map(s => s.user_id);
 
             const usersIds = [...studentUserIds, ...employeeUserIds];
 
-            // get related employee's data (user_id, id)
+            // get related employee's data (user_id, id, manager's data)
             const relatedEmp = employees.filter(emp => emp.organization_id === id);
             const orgManager = relatedEmp.filter(emp => emp.role_id === 29);
             const relatedEmpUserIds = relatedEmp.map(s => s.user_id);
@@ -1619,6 +1681,7 @@ exports.watomsFormsScore = async (req, res) => {
                     month: months[i],
                     monthNumber: m,
                     performance: perf,
+                    codes: [],
                     TQBM: { totalTQBM: TQBM, TG: { avgScore: TQBMTG }, TE: { avgScore: TQBMTE }, T: { avgScore: TQBMT } },
                     GOVBM: { totalGOVBM: GOVBM, IP: { avgScore: GOVBMIP }, DD: { avgScore: GOVBMDD }, PO: { avgScore: GOVBMPO }, QD: { avgScore: GOVBMQD }, W: { avgScore: GOVBMW } },
                     ACBM: { totalACBM: ACBM, TG: { avgScore: ACBMTG }, TR: { avgScore: ACBMTR } },
@@ -1667,22 +1730,22 @@ exports.watomsFormsScore = async (req, res) => {
                     performance: perf,
                     TQBM: {
                         totalTQBM: TQBM,
-                        TG: { avgScore: TQBMTG, codeScores: currentMonthData.tgCodes },
-                        TE: { avgScore: TQBMTE, codeScores: currentMonthData.teCodes },
-                        T: { avgScore: TQBMT, codeScores: currentMonthData.tCodes }
+                        TG: { avgScore: TQBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG },
+                        TE: { avgScore: TQBMTE, codeScores: currentMonthData.teCodes, scores: currentMonthData.eachTE },
+                        T: { avgScore: TQBMT, codeScores: currentMonthData.tCodes, scores: currentMonthData.eachT }
                     },
                     GOVBM: {
                         totalGOVBM: GOVBM,
-                        IP: { avgScore: GOVBMIP, codeScores: currentMonthData.ipCodes },
-                        DD: { avgScore: GOVBMDD, codeScores: currentMonthData.ddCodes },
-                        PO: { avgScore: GOVBMPO, codeScores: currentMonthData.poCodes },
-                        QD: { avgScore: GOVBMQD, codeScores: currentMonthData.qdCodes },
-                        W: { avgScore: GOVBMW, codeScores: currentMonthData.wCodes }
+                        IP: { avgScore: GOVBMIP, codeScores: currentMonthData.ipCodes, scores: currentMonthData.eachIP },
+                        DD: { avgScore: GOVBMDD, codeScores: currentMonthData.ddCodes, scores: currentMonthData.eachDD },
+                        PO: { avgScore: GOVBMPO, codeScores: currentMonthData.poCodes, scores: currentMonthData.eachPO },
+                        QD: { avgScore: GOVBMQD, codeScores: currentMonthData.qdCodes, scores: currentMonthData.eachQD },
+                        W: { avgScore: GOVBMW, codeScores: currentMonthData.wCodes, scores: currentMonthData.eachW }
                     },
                     ACBM: {
                         totalACBM: ACBM,
-                        TG: { avgScore: ACBMTG, codeScores: currentMonthData.tgCodes },
-                        TR: { avgScore: ACBMTR, codeScores: currentMonthData.trCodes }
+                        TG: { avgScore: ACBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG },
+                        TR: { avgScore: ACBMTR, codeScores: currentMonthData.trCodes, scores: currentMonthData.eachTR }
                     },
                     GEEBM: {
                         totalGEEBM: GEEBM,
@@ -1691,7 +1754,7 @@ exports.watomsFormsScore = async (req, res) => {
                         ACBM: roundNumber(ACBM * 0.2),
                         TRA: GEEBMTRA,
                         TV: { avgScore: GEEBMTTV },
-                        CP: { avgScore: GEEBMTCP, codeScores: currentMonthData.cpCodes }
+                        CP: { avgScore: GEEBMTCP, codeScores: currentMonthData.cpCodes, scores: currentMonthData.eachCP }
                     },
                     color: '#ef4444'
                 });
