@@ -1730,22 +1730,22 @@ exports.watomsFormsScore = async (req, res) => {
                     performance: perf,
                     TQBM: {
                         totalTQBM: TQBM,
-                        TG: { avgScore: TQBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG },
-                        TE: { avgScore: TQBMTE, codeScores: currentMonthData.teCodes, scores: currentMonthData.eachTE },
-                        T: { avgScore: TQBMT, codeScores: currentMonthData.tCodes, scores: currentMonthData.eachT }
+                        TG: { avgScore: TQBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG, no_of_forms: currentMonthData.eachTG.length },
+                        TE: { avgScore: TQBMTE, codeScores: currentMonthData.teCodes, scores: currentMonthData.eachTE, no_of_forms: currentMonthData.eachTE.length },
+                        T: { avgScore: TQBMT, codeScores: currentMonthData.tCodes, scores: currentMonthData.eachT, no_of_forms: currentMonthData.eachT.length }
                     },
                     GOVBM: {
                         totalGOVBM: GOVBM,
-                        IP: { avgScore: GOVBMIP, codeScores: currentMonthData.ipCodes, scores: currentMonthData.eachIP },
-                        DD: { avgScore: GOVBMDD, codeScores: currentMonthData.ddCodes, scores: currentMonthData.eachDD },
-                        PO: { avgScore: GOVBMPO, codeScores: currentMonthData.poCodes, scores: currentMonthData.eachPO },
-                        QD: { avgScore: GOVBMQD, codeScores: currentMonthData.qdCodes, scores: currentMonthData.eachQD },
-                        W: { avgScore: GOVBMW, codeScores: currentMonthData.wCodes, scores: currentMonthData.eachW }
+                        IP: { avgScore: GOVBMIP, codeScores: currentMonthData.ipCodes, scores: currentMonthData.eachIP, no_of_forms: currentMonthData.eachIP.length },
+                        DD: { avgScore: GOVBMDD, codeScores: currentMonthData.ddCodes, scores: currentMonthData.eachDD, no_of_forms: currentMonthData.eachDD.length },
+                        PO: { avgScore: GOVBMPO, codeScores: currentMonthData.poCodes, scores: currentMonthData.eachPO, no_of_forms: currentMonthData.eachPO.length },
+                        QD: { avgScore: GOVBMQD, codeScores: currentMonthData.qdCodes, scores: currentMonthData.eachQD, no_of_forms: currentMonthData.eachQD.length },
+                        W: { avgScore: GOVBMW, codeScores: currentMonthData.wCodes, scores: currentMonthData.eachW, no_of_forms: currentMonthData.eachW.length }
                     },
                     ACBM: {
                         totalACBM: ACBM,
-                        TG: { avgScore: ACBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG },
-                        TR: { avgScore: ACBMTR, codeScores: currentMonthData.trCodes, scores: currentMonthData.eachTR }
+                        TG: { avgScore: ACBMTG, codeScores: currentMonthData.tgCodes, scores: currentMonthData.eachTG, no_of_forms: currentMonthData.eachTG.length },
+                        TR: { avgScore: ACBMTR, codeScores: currentMonthData.trCodes, scores: currentMonthData.eachTR, no_of_forms: currentMonthData.eachTR.length }
                     },
                     GEEBM: {
                         totalGEEBM: GEEBM,
@@ -1754,7 +1754,7 @@ exports.watomsFormsScore = async (req, res) => {
                         ACBM: roundNumber(ACBM * 0.2),
                         TRA: GEEBMTRA,
                         TV: { avgScore: GEEBMTTV },
-                        CP: { avgScore: GEEBMTCP, codeScores: currentMonthData.cpCodes, scores: currentMonthData.eachCP }
+                        CP: { avgScore: GEEBMTCP, codeScores: currentMonthData.cpCodes, scores: currentMonthData.eachCP, no_of_forms: currentMonthData.eachCP.length }
                     },
                     color: '#ef4444'
                 });
