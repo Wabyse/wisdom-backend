@@ -153,6 +153,21 @@ async function calculateEvaluation(org, cityLocations, defaultLocation, db) {
     };
 }
 
+function fillMissingCodes(currentMonthData, formsArray, codeKey) {
+    // codeKey is like "tgCodes", "teCodes", etc.
+    const allCodes = new Set((currentMonthData[codeKey] || []).map(item => item.code));
+
+    const missingForms = formsArray
+        .filter(item => !allCodes.has(item.code))
+        .map(item => ({
+            code: item.code,
+            name: item.ar_name,
+            average_score: 0
+        }));
+
+    currentMonthData[codeKey].push(...missingForms);
+}
+
 const avg = (arr) => {
     if (!Array.isArray(arr) || arr.length === 0) return 0;
     let sum = 0, n = 0;
@@ -1704,6 +1719,17 @@ exports.watomsFormsScore = async (req, res) => {
             for (let m = startMonth; m <= endMonth; m++) {
                 const currentMonthData = totalOrgMonths.find(month => month.monthNumber === m);
                 if (!currentMonthData) continue;
+
+                fillMissingCodes(currentMonthData, formsTG, "tgCodes");
+                fillMissingCodes(currentMonthData, formsTE, "teCodes");
+                fillMissingCodes(currentMonthData, formsT, "tCodes");
+                fillMissingCodes(currentMonthData, formsIP, "ipCodes");
+                fillMissingCodes(currentMonthData, formsDD, "ddCodes");
+                fillMissingCodes(currentMonthData, formsPO, "poCodes");
+                fillMissingCodes(currentMonthData, formsQD, "qdCodes");
+                fillMissingCodes(currentMonthData, formsW, "wCodes");
+                fillMissingCodes(currentMonthData, formsTR, "trCodes");
+                fillMissingCodes(currentMonthData, formsCP, "cpCodes");
 
                 const perf = roundNumber(currentMonthData.performance || 0);
                 const TQBM = roundNumber(currentMonthData.tqbm || 0);
