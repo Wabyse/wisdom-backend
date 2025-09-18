@@ -52,6 +52,7 @@ module.exports = (sequelize, DataTypes) => {
     Organization.hasMany(models.EnvironmentReports, { foreignKey: 'organization_id', as: 'envReports' });
     Organization.hasMany(models.CurriculumReport, { foreignKey: 'organization_id', as: 'currReports' });
     Organization.hasMany(models.WatomsWorkshopDocumentSubCategory, { foreignKey: 'organization_id', as: 'sub_categories' });
+    Organization.hasMany(models.PublishedNews, { foreignKey: 'organization_id', as: 'news' });
   };
 
   return Organization;
