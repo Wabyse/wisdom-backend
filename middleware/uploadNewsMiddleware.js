@@ -14,7 +14,9 @@ function sanitizeBase(base) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    console.log("req.body")
     const orgId = req.body.organization_id;
+    console.log(orgId)
     if (!orgId) return cb(new Error("organization_id is required"));
 
     const targetDir = path.join("news", orgId.toString());
