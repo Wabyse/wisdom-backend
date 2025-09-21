@@ -37,7 +37,7 @@ exports.getNewsList = async (req, res) => {
         const newsList = await PublishedNews.findAll({
             where: whereClause,
             order: [['createdAt', 'DESC']], // Most recent first
-            attributes: ['id', 'title', 'description', 'date', 'image_path', 'createdAt']
+            attributes: ['id', 'title', 'description', 'date', 'image_path', 'organization_id', 'notification',    'createdAt']
         });
 
         // Transform the data to include full image URLs
@@ -65,6 +65,54 @@ exports.getNewsList = async (req, res) => {
             success: false,
             message: "Failed to fetch news list", 
             error: err.message 
+        });
+    }
+}
+
+exports.updateNotification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { notification } = req.body;
+
+        // Validate input
+        if (typeof notification !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                message: "Notification value must be a boolean (true or false)"
+            });
+        }
+
+        // Check if the news exists
+        const news = await PublishedNews.findByPk(id);
+        if (!news) {
+            return res.status(404).json({
+                success: false,
+                message: "News not found"
+            });
+        }
+
+        // Update the notification status
+        await PublishedNews.update(
+            { notification },
+            { where: { id } }
+        );
+
+        // Fetch the updated news to return
+        const updatedNews = await PublishedNews.findByPk(id, {
+            attributes: ['id', 'title', 'description', 'date', 'image_path', 'organization_id', 'notification', 'updatedAt']
+        });
+
+        res.json({
+            success: true,
+            message: "Notification status updated successfully",
+            data: updatedNews
+        });
+    } catch (err) {
+        console.error("Error updating notification:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update notification status",
+            error: err.message
         });
     }
 }

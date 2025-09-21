@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE'
         },
+        notification: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+        },
         updatedAt: {
             type: DataTypes.DATE,
             allowNull: false
