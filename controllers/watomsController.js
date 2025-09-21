@@ -5,7 +5,7 @@ require("dotenv").config();
 exports.publishNews = async (req, res) => {
     try {
         const { title, description, date, organization_id } = req.body;
-        
+
         // Define relativePath based on whether a file was uploaded
         let relativePath = null;
         if (req.file) {
@@ -30,24 +30,26 @@ exports.publishNews = async (req, res) => {
 exports.getNewsList = async (req, res) => {
     try {
         const { organization_id } = req.query;
-        
+
         // Build where clause for filtering by organization
         const whereClause = organization_id ? { organization_id } : {};
-        
+
         const newsList = await PublishedNews.findAll({
             where: whereClause,
             order: [['createdAt', 'DESC']], // Most recent first
-            attributes: ['id', 'title', 'description', 'date', 'image_path', 'organization_id', 'notification',    'createdAt']
+            attributes: [
+                'id', 'title', 'description', 'date',
+                'image_path', 'organization_id', 'notification', 'createdAt'
+            ]
         });
 
         // Transform the data to include full image URLs
         const transformedNewsList = newsList.map(news => {
             const newsData = news.toJSON();
             if (newsData.image_path) {
-                // Convert relative path to full URL for news images
-                // image_path is like "news/123/filename.jpg"
-                // URL should be "/uploads/news/123/filename.jpg"
-                newsData.image_url = `/uploads/${newsData.image_path}`;
+                // Replace backslashes with forward slashes
+                const cleanPath = newsData.image_path.replace(/\\/g, '/');
+                newsData.image_url = `/uploads/${cleanPath}`;
             } else {
                 newsData.image_url = null;
             }
@@ -61,13 +63,14 @@ exports.getNewsList = async (req, res) => {
         });
     } catch (err) {
         console.error("Error fetching news list:", err);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            message: "Failed to fetch news list", 
-            error: err.message 
+            message: "Failed to fetch news list",
+            error: err.message
         });
     }
 }
+
 
 exports.updateNotification = async (req, res) => {
     try {
