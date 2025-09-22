@@ -32,7 +32,7 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve news images from the news directory
-app.use('/uploads/news', express.static(path.join(__dirname, 'news')));
+app.use('/news', express.static(path.join(__dirname, 'news')));
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/forms", formRoutes);
