@@ -36,7 +36,7 @@ exports.getNewsList = async (req, res) => {
 
         const newsList = await PublishedNews.findAll({
             where: whereClause,
-            order: [['createdAt', 'DESC']], // Most recent first
+            order: [['date', 'DESC']], // Most recent first
             attributes: [
                 'id', 'title', 'description', 'date',
                 'image_path', 'organization_id', 'notification', 'createdAt'
