@@ -96,5 +96,10 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true,
     });
 
+    TraineeRegistrationData.associate = (models) => {
+        TraineeRegistrationData.belongsTo(models.Organization, { foreignKey: 'vtc', as: 'org' });
+        TraineeRegistrationData.belongsTo(models.Curriculum, { foreignKey: 'course', as: 'curriculum' });
+    };
+
     return TraineeRegistrationData;
 }

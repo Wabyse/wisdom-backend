@@ -236,9 +236,9 @@ function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, st
     const wScore = avg(filteredW);
     const trScore = avg(filteredTR);
     const tvScore = filteredTV;
-
     const cpScore = avg(filteredCP);
-    const tqbm = (tgScore * 40) + (teScore * 35) + (tScore * 25);
+
+    const tqbm = tgScore && tScore ? (tgScore * 40) + (teScore * 35) + (tScore * 25) : (teScore * 100);
     const govbm = (ipScore * 15) + (ddScore * 30) + (poScore * 20) + (qdScore * 20) + (wScore * 15);
     const acbm = (trScore * 40) + (tgScore * 60);
     const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (tvScore * 0.05) + (cpScore * 0.1);
@@ -409,7 +409,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     const filteredCP = filterPerMonth(month, cp);
     const filteredCPEach = filterEachPerMonth(month, cp);
     const filteredCPCodes = filterCodePerMonth(month, cp);
-    const tqbm = (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25);
+    const tqbm = filteredTG && filteredT ? (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25) : (filteredTE * 100);
     const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
     const acbm = (filteredTR * 40) + (filteredTG * 60);
     const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1);
@@ -474,8 +474,9 @@ function calculateWisdomEachMonthScore(month, T, C, EX, PD, W, EDU, DO, H, AC) {
     const tqbm = (0) + (0) + (0);
     const pdbm = (0) + (((filteredPD * 30) + 0 + 0) / 3);
     const eebm = (filteredEDU * 40) + (0);
-    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (filteredC * 20) * (filteredW * 15);
+    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (filteredC * 20) + (filteredW * 15);
     const totalScore = geebm;
+
     // let color = '#ef4444';
     // if (totalScore >= 70) {
     //     color = '#22c55e';
@@ -1405,7 +1406,7 @@ exports.watomsFormsScore = async (req, res) => {
                 CP: { avgScore: 0, codeScores: [], scores: [] }
             }
         }));
-        // why ?
+
         let TQBM = { totalTQBM: 0, TG: { avgScore: 0, scores: [] }, TE: { avgScore: 0, scores: [] }, T: { avgScore: 0, scores: [] } };
         let GOVBM = { totalGOVBM: 0, IP: { avgScore: 0, scores: [] }, DD: { avgScore: 0, scores: [] }, PO: { avgScore: 0, scores: [] }, QD: { avgScore: 0, scores: [] }, W: { avgScore: 0, scores: [] } };
         let ACBM = { totalACBM: 0, TR: { avgScore: 0, scores: [] }, TG: { avgScore: 0, scores: [] } };
@@ -1742,7 +1743,7 @@ exports.watomsFormsScore = async (req, res) => {
             });
 
             resultsThisRun.forEach((r, i) => {
-                monthlyTotals[i].sum += r.performance; // r.performance is your totalScore for that month
+                monthlyTotals[i].sum += r.performance;
                 monthlyTotals[i].count += 1;
                 monthlyTotals[i].TQBM.totalTQBM += r.tqbm;
                 monthlyTotals[i].TQBM.TG.avgScore += r.tqbmtg;
@@ -2103,6 +2104,72 @@ exports.wisdomFormsScore = async (req, res) => {
             }
         }));
 
+        let ODBM = { totalODBM: 0, DO: { avgScore: 0, scores: [] } };
+        let APBM = { totalAPBM: 0 };
+        let TQBM = { totalTQBM: 0 };
+        let PDBM = { totalPDBM: 0, PD: { avgScore: 0, scores: [] } };
+        let EEBM = { totalEEBM: 0, EDU: { avgScore: 0, scores: [] } };
+
+        // final result's variable
+        const results = {
+            totalCurriculums: 0,
+            total: {
+                id: "All",
+                en_name: "All",
+                ar_name: "الكل",
+                no_of_students: 0,
+                no_of_teachers: 0,
+                no_of_employees: 0,
+                overall: 0,
+                months: [],
+                ODBM: {
+                    totalODBM: 0,
+                    DO: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                },
+                APBM: {
+                    totalAPBM: 0,
+                },
+                TQBM: {
+                    totalTQBM: 0,
+                },
+                PDBM: {
+                    totalPDBM: 0,
+                    PD: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                },
+                EEBM: {
+                    totalEEBM: 0,
+                    EDU: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                },
+                GEEBM: {
+                    totalGEEBM: 0,
+                    ODBM,
+                    APBM,
+                    TQBM,
+                    PDBM,
+                    EEBM,
+                    C: {
+                        avgScore: 0,
+                        scores: []
+                    },
+                    W: {
+                        avgScore: 0,
+                        scores: []
+                    }
+                }
+            },
+            organizations: {}
+        };
+
+        let totalScores = 0;
         let totalMonths = [];
 
         // get current Month and Year
@@ -2468,41 +2535,34 @@ exports.wisdomFormsScore = async (req, res) => {
             APBM.totalAPBM += overAllScore.totalAPBM;
             TQBM.totalTQBM += overAllScore.totalTQBM;
             PDBM.totalPDBM += overAllScore.totalPDBM;
-            TQBM.TE.avgScore += overAllScore.avgTE;
-            TQBM.TE.scores.push(...allTEScore);
-            TQBM.T.avgScore += overAllScore.avgT;
-            TQBM.T.scores.push(...allTScore);
-            GOVBM.totalGOVBM += overAllScore.totalGOVBM;
-            GOVBM.IP.avgScore += overAllScore.avgIP;
-            GOVBM.IP.scores.push(...allIPScore);
-            GOVBM.DD.avgScore += overAllScore.avgDD;
-            GOVBM.DD.scores.push(...allDDScore);
-            GOVBM.PO.avgScore += overAllScore.avgPO;
-            GOVBM.PO.scores.push(...allPOScore);
-            GOVBM.QD.avgScore += overAllScore.avgQD;
-            GOVBM.QD.scores.push(...allQDScore);
-            GOVBM.W.avgScore += overAllScore.avgW;
-            GOVBM.W.scores.push(...allWScore);
-            ACBM.totalACBM += overAllScore.totalACBM;
-            ACBM.TG.avgScore += overAllScore.avgTG;
-            ACBM.TG.scores.push(...allTGScore);
-            ACBM.TR.avgScore += overAllScore.avgTR;
-            ACBM.TR.scores.push(...allTRScore);
+            PDBM.PD.avgScore += overAllScore.avgPD;
+            EEBM.totalEEBM += overAllScore.totalEEBM;
+            EEBM.EDU.avgScore += overAllScore.avgEDU;
             results.organizations[id] = {
                 id,
                 name: orgName,
                 location: orgLocation || "",
-                managerFirstName: orgManager[0].first_name,
-                managerMiddleName: orgManager[0].middle_name,
-                managerLastName: orgManager[0].last_name,
-                no_of_trainees: studentsBySchool[id].length,
-                no_of_trainers: relatedTeachers.length,
+                managerFirstName: orgManager[0]?.first_name,
+                managerMiddleName: orgManager[0]?.middle_name,
+                managerLastName: orgManager[0]?.last_name,
+                principalFirstName: orgPrincipal[0]?.first_name,
+                principalMiddleName: orgPrincipal[0]?.middle_name,
+                principalLastName: orgPrincipal[0]?.last_name,
+                no_of_students: studentsBySchool[id].length,
+                no_of_teachers: relatedTeachers.length,
                 no_of_employees: relatedEmp.length,
                 overall: overAllScore.totalScore,
                 months: monthlySums2
             }
-
         }
+        results.total.overall = totalScores / staticIds.length;
+        results.total.months = totalMonths;
+        results.total.no_of_students = students.length;
+        results.totalCurriculums = curriculums.length;
+        results.total.no_of_employees = totalEmp.length;
+        results.total.no_of_teachers = totalTeachers.length;
+
+        res.json(results);
 
     } catch (error) {
         console.error('Error in wisdomFormsScore:', error);

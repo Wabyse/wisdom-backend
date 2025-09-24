@@ -5,5 +5,6 @@ const dataController = require("../controllers/dataController");
 router.get("/students/specializations", dataController.specializations);
 router.get("/authorities", dataController.authorities);
 router.get("/projects", dataController.projects);
+router.get("/traineesRegistrations", dataController.fetchTraineesRegistrations);
 
 module.exports = router;

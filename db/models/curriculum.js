@@ -41,6 +41,7 @@ module.exports = (sequelize, DataTypes) => {
         Curriculum.belongsTo(models.Subject, { foreignKey: 'subject_id', as: 'subject' });
         Curriculum.hasMany(models.CurriculumReport, { foreignKey: 'curriculum_id', as: 'reports' });
         Curriculum.hasMany(models.CurriculumUnit, { foreignKey: 'curriculum_id', as: 'units' });
+        Curriculum.hasMany(models.TraineeRegistrationData, { foreignKey: 'course', as: 'registrations' });
     };
 
     return Curriculum;
