@@ -287,10 +287,9 @@ function calculateWisdomOverAllScore(T, C, EX, PD, W, EDU, DO, H, AC, start, end
     const odbm = (doScore * 10) + (0) + (0) + (0);
     const apbm = (0) + (0) + (0);
     const tqbm = (0) + (0) + (0);
-    const pdbm = (0) + (((pdScore * 30) + 0 + 0) / 3);
+    const pdbm = (0) + (pdScore * 30);
     const eebm = (eduScore * 40) + (0);
-    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (cScore * 20) * (wScore * 15);
-
+    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (cScore * 10) * (wScore * 10) + (tScore * 15);
     return {
         avgT: tScore,
         avgC: cScore,
@@ -472,9 +471,9 @@ function calculateWisdomEachMonthScore(month, T, C, EX, PD, W, EDU, DO, H, AC) {
     const odbm = (filteredDO * 10) + (0) + (0) + (0);
     const apbm = (0) + (0) + (0);
     const tqbm = (0) + (0) + (0);
-    const pdbm = (0) + (((filteredPD * 30) + 0 + 0) / 3);
+    const pdbm = (0) + (filteredPD * 30);
     const eebm = (filteredEDU * 40) + (0);
-    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (filteredC * 20) + (filteredW * 15);
+    const geebm = (odbm * 0.15) + (apbm * 0.1) + (tqbm * 0.1) + (pdbm * 0.15) + (eebm * 0.15) + (filteredC * 10) + (filteredW * 10) + (filteredT * 15);
     const totalScore = geebm;
 
     // let color = '#ef4444';
@@ -489,11 +488,11 @@ function calculateWisdomEachMonthScore(month, T, C, EX, PD, W, EDU, DO, H, AC) {
         performance: totalScore,
         odbm, apbm, tqbm, pdbm, eebm, geebm,
         DO: (filteredDO * 100), PD: (filteredPD * 100), EDU: (filteredEDU * 100),
-        C: (filteredC * 100), W: (filteredW * 100),
+        C: (filteredC * 100), W: (filteredW * 100), T: (filteredT * 100),
         doCodes: filteredDOCodes, pdCodes: filteredPDCodes, eduCodes: filteredEDUCodes,
-        cCodes: filteredCCodes, wCodes: filteredWCodes,
+        cCodes: filteredCCodes, wCodes: filteredWCodes, tCodes: filteredTCodes,
         eachDO: filteredDOEach, eachPD: filteredPDEach, eachEDU: filteredEDUEach,
-        eachC: filteredCEach, eachW: filteredWEach
+        eachC: filteredCEach, eachW: filteredWEach, eachT: filteredTEach
     };
 }
 
@@ -2077,20 +2076,32 @@ exports.wisdomFormsScore = async (req, res) => {
             ODBM: {
                 totalODBM: 0,
                 DO: { avgScore: 0, codeScores: [], scores: [] },
+                sessions: { avgScore: 0 },
+                STA: { avgScore: 0 },
+                STC: { avgScore: 0 },
             },
             APBM: {
                 totalAPBM: 0,
+                PRO: { avgScore: 0 },
+                FO: { avgScore: 0 },
+                SU: { avgScore: 0 },
             },
             TQBM: {
                 totalTQBM: 0,
+                TG: { avgScore: 0 },
+                TR360: { avgScore: 0 },
+                CA: { avgScore: 0 },
             },
             PDBM: {
-                totalGEEBM: 0,
+                totalPDBM: 0,
                 PD: { avgScore: 0, codeScores: [], scores: [] },
+                PDA: { avgScore: 0 },
+
             },
             EEBM: {
                 totalEEBM: 0,
                 EDU: { avgScore: 0, codeScores: [], scores: [] },
+                LEE: { avgScore: 0 },
             },
             GEEBM: {
                 totalGEEBM: 0,
@@ -2101,14 +2112,15 @@ exports.wisdomFormsScore = async (req, res) => {
                 EEBM: 0,
                 C: { avgScore: 0, codeScores: [], scores: [] },
                 W: { avgScore: 0, codeScores: [], scores: [] },
+                T: { avgScore: 0, codeScores: [], scores: [] },
             }
         }));
 
-        let ODBM = { totalODBM: 0, DO: { avgScore: 0, scores: [] } };
-        let APBM = { totalAPBM: 0 };
-        let TQBM = { totalTQBM: 0 };
-        let PDBM = { totalPDBM: 0, PD: { avgScore: 0, scores: [] } };
-        let EEBM = { totalEEBM: 0, EDU: { avgScore: 0, scores: [] } };
+        let ODBM = { totalODBM: 0, DO: { avgScore: 0, scores: [] }, sessions: { avgScore: 0 }, STA: { avgScore: 0 }, STC: { avgScore: 0 } };
+        let APBM = { totalAPBM: 0, PRO: { avgScore: 0 }, FO: { avgScore: 0 }, SU: { avgScore: 0 } };
+        let TQBM = { totalTQBM: 0, TG: { avgScore: 0 }, TR360: { avgScore: 0 }, CA: { avgScore: 0 } };
+        let PDBM = { totalPDBM: 0, PD: { avgScore: 0, scores: [] }, PDA: { avgScore: 0 } };
+        let EEBM = { totalEEBM: 0, EDU: { avgScore: 0, scores: [] }, LEE: { avgScore: 0 } };
 
         // final result's variable
         const results = {
@@ -2126,28 +2138,42 @@ exports.wisdomFormsScore = async (req, res) => {
                     totalODBM: 0,
                     DO: {
                         avgScore: 0,
+                        codeScores: [],
                         scores: []
                     },
+                    sessions: { avgScore: 0 },
+                    STA: { avgScore: 0 },
+                    STC: { avgScore: 0 },
                 },
                 APBM: {
                     totalAPBM: 0,
+                    PRO: { avgScore: 0 },
+                    FO: { avgScore: 0 },
+                    SU: { avgScore: 0 },
                 },
                 TQBM: {
                     totalTQBM: 0,
+                    TG: { avgScore: 0 },
+                    TR360: { avgScore: 0 },
+                    CA: { avgScore: 0 },
                 },
                 PDBM: {
                     totalPDBM: 0,
                     PD: {
                         avgScore: 0,
+                        codeScores: [],
                         scores: []
                     },
+                    PDA: { avgScore: 0 },
                 },
                 EEBM: {
                     totalEEBM: 0,
                     EDU: {
                         avgScore: 0,
+                        codeScores: [],
                         scores: []
                     },
+                    LEE: { avgScore: 0 },
                 },
                 GEEBM: {
                     totalGEEBM: 0,
@@ -2158,10 +2184,17 @@ exports.wisdomFormsScore = async (req, res) => {
                     EEBM,
                     C: {
                         avgScore: 0,
+                        codeScores: [],
                         scores: []
                     },
                     W: {
                         avgScore: 0,
+                        codeScores: [],
+                        scores: []
+                    },
+                    T: {
+                        avgScore: 0,
+                        codeScores: [],
                         scores: []
                     }
                 }
@@ -2222,7 +2255,7 @@ exports.wisdomFormsScore = async (req, res) => {
 
         // fetch all teacher's data
         const teachers = await db.Teacher.findAll({
-            attributes: ['id', 'employee_id'],
+            attributes: ['id', 'employee_id', 'planned_sessions', 'actual_sessions'],
             raw: true
         });
         const totalTeachers = teachers.filter(teacher => totalEmpIds.includes(teacher.employee_id))
@@ -2254,6 +2287,36 @@ exports.wisdomFormsScore = async (req, res) => {
         // Student Attendance
         const studentsAttendance = await db.studentAttendance.findAll({
             attributes: ['status', 'student_id', 'createdAt'],
+            raw: true
+        });
+
+        // Teachers Substitutions
+        const substitutes = await db.Substitute.findAll({
+            attributes: ['id', 'substitute_id', 'createdAt'],
+            raw: true
+        });
+
+        // Students Commitment
+        const studentsBehavior = await db.studentBehavior.findAll({
+            attributes: ['id', 'offender_id', 'behavior_date'],
+            raw: true
+        });
+
+        // Teachers Assessments
+        const teachersAssessments = await db.TeacherEvaluation.findAll({
+            attributes: ['id', 'teacher_id', 'type', 'first_result', 'second_result', 'third_result', 'fourth_result', 'fifth_result', 'sixth_result', 'createdAt'],
+            raw: true
+        });
+
+        // Students Quiz and Test
+        const studentsQT = await db.QuizTest.findAll({
+            attributes: ['id', 'result', 'student_id', 'template_id', 'createdAt'],
+            raw: true
+        });
+
+        // Students Quiz and Test Template
+        const qtTemplate = await db.QuizzesTestsTemplate.findAll({
+            attributes: ['id', 'name', 'type', 'createdAt'],
             raw: true
         });
 
@@ -2416,8 +2479,9 @@ exports.wisdomFormsScore = async (req, res) => {
                 monthlyTotals[i].GEEBM.TQBM += r.tqbm;
                 monthlyTotals[i].GEEBM.PDBM += r.pdbm;
                 monthlyTotals[i].GEEBM.EEBM += r.eebm;
-                monthlyTotals[i].GEEBM.C += r.C;
-                monthlyTotals[i].GEEBM.W += r.W;
+                monthlyTotals[i].GEEBM.C.avgScore += r.C;
+                monthlyTotals[i].GEEBM.W.avgScore += r.W;
+                monthlyTotals[i].GEEBM.T.avgScore += r.T;
             });
 
             const orgMonthResults = resultsThisRun;
@@ -2441,7 +2505,7 @@ exports.wisdomFormsScore = async (req, res) => {
                 const GEEBM = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.totalGEEBM / monthlyTotals[i].count) : 0;
                 const GEEBMC = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.C.avgScore / monthlyTotals[i].count) : 0;
                 const GEEBMW = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.W.avgScore / monthlyTotals[i].count) : 0;
-
+                const GEEBMT = monthlyTotals[i].count ? roundNumber(monthlyTotals[i].GEEBM.T.avgScore / monthlyTotals[i].count) : 0;
                 monthlySums.push({
                     month: months[i],
                     monthNumber: m,
@@ -2452,7 +2516,7 @@ exports.wisdomFormsScore = async (req, res) => {
                     TQBM: { totalTQBM: TQBM },
                     PDBM: { totalPDBM: PDBM, PD: { avgScore: PDBMPD } },
                     EEBM: { totalEEBM: EEBM, EDU: { avgScore: EEBMEDU } },
-                    GEEBM: { totalGEEBM: GEEBM, ODBM: roundNumber(ODBM * 0.15), APBM: roundNumber(APBM * 0.1), TQBM: roundNumber(TQBM * 0.1), PDBM: roundNumber(PDBM * 0.15), EEBM: roundNumber(EEBM * 0.15), C: { avgScore: GEEBMC }, W: { avgScore: GEEBMW } },
+                    GEEBM: { totalGEEBM: GEEBM, ODBM: roundNumber(ODBM * 0.15), APBM: roundNumber(APBM * 0.1), TQBM: roundNumber(TQBM * 0.1), PDBM: roundNumber(PDBM * 0.15), EEBM: roundNumber(EEBM * 0.15), C: { avgScore: GEEBMC }, W: { avgScore: GEEBMW }, T: { avgScore: GEEBMT } },
                     color: '#ef4444'
                 });
             }
@@ -2477,6 +2541,7 @@ exports.wisdomFormsScore = async (req, res) => {
                 fillMissingCodes(currentMonthData, formsEDU, "eduCodes");
                 fillMissingCodes(currentMonthData, formsC, "cCodes");
                 fillMissingCodes(currentMonthData, formsW, "wCodes");
+                fillMissingCodes(currentMonthData, formsT, "tCodes");
 
                 const perf = roundNumber(currentMonthData.performance || 0);
                 const ODBM = roundNumber(currentMonthData.odbm || 0);
@@ -2490,6 +2555,7 @@ exports.wisdomFormsScore = async (req, res) => {
                 const GEEBM = roundNumber(currentMonthData.geebm || 0);
                 const GEEBMC = roundNumber(currentMonthData.C || 0);
                 const GEEBMW = roundNumber(currentMonthData.W || 0);
+                const GEEBMT = roundNumber(currentMonthData.T || 0);
 
                 monthlySums2.push({
                     month: currentMonthData.month,
@@ -2511,7 +2577,7 @@ exports.wisdomFormsScore = async (req, res) => {
                     },
                     EEBM: {
                         totalEEBM: EEBM,
-                        DO: { avgScore: EEBMEDU, codeScores: currentMonthData.eduCodes, scores: currentMonthData.eachEDU, no_of_forms: currentMonthData.eachEDU.length },
+                        EDU: { avgScore: EEBMEDU, codeScores: currentMonthData.eduCodes, scores: currentMonthData.eachEDU, no_of_forms: currentMonthData.eachEDU.length },
                     },
                     GEEBM: {
                         totalGEEBM: GEEBM,
@@ -2521,7 +2587,8 @@ exports.wisdomFormsScore = async (req, res) => {
                         PDBM: roundNumber(PDBM * 0.15),
                         EEBM: roundNumber(EEBM * 0.15),
                         C: { avgScore: GEEBMC, codeScores: currentMonthData.cCodes, scores: currentMonthData.eachC, no_of_forms: currentMonthData.eachC.length },
-                        W: { avgScore: GEEBMW, codeScores: currentMonthData.wCodes, scores: currentMonthData.eachW, no_of_forms: currentMonthData.eachW.length }
+                        W: { avgScore: GEEBMW, codeScores: currentMonthData.wCodes, scores: currentMonthData.eachW, no_of_forms: currentMonthData.eachW.length },
+                        T: { avgScore: GEEBMT, codeScores: currentMonthData.tCodes, scores: currentMonthData.eachT, no_of_forms: currentMonthData.eachT.length },
                     },
                     color: '#ef4444'
                 });
