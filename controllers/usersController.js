@@ -68,7 +68,7 @@ exports.viewVtcEmployees = async (req, res) => {
           model: Employee,
           as: "employee",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id", "role_id"],
           where: {
             organization_id: [4, 5, 7, 8, 9],
           },

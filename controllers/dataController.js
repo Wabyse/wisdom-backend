@@ -1,4 +1,4 @@
-const { Specialization, Authority, Organization, TraineeRegistrationData, Curriculum } = require("../db/models");
+const { Specialization, Authority, Organization, TraineeRegistrationData, Curriculum, EmployeeRole } = require("../db/models");
 require("dotenv").config();
 
 exports.specializations = async (req, res) => {
@@ -71,6 +71,22 @@ exports.fetchTraineesRegistrations = async (req, res) => {
             status: "success",
             message: "data got fetched successfully",
             registrations,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+    }
+};
+
+exports.fetchEmployeesRoles = async (req, res) => {
+    try {
+        const roles = await EmployeeRole.findAll({
+            attributes: ['id', 'title']
+        });
+
+        res.status(200).json({
+            status: "success",
+            message: "data got fetched successfully",
+            roles,
         });
     } catch (error) {
         res.status(500).json({ message: "Server error", error });

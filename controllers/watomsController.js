@@ -1,4 +1,4 @@
-const { PublishedNews } = require("../db/models");
+const { PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, Employee } = require("../db/models");
 const path = require("path");
 require("dotenv").config();
 
@@ -119,3 +119,111 @@ exports.updateNotification = async (req, res) => {
         });
     }
 }
+
+exports.getManagerEvaluationTemplate = async (req, res) => {
+    try {
+        const categories = await ManagerEvaluationCategory.findAll({
+            attributes: ['id', 'title'],
+            include: [
+                {
+                    model: ManagerEvaluationTemplate,
+                    as: 'templates',
+                    attributes: ['id', 'title', 'max_score']
+                }
+            ],
+            order: [['id', 'ASC']]
+        });
+
+        // Transform into the desired shape
+        const result = categories.map(category => ({
+            title: category.title,
+            statements: category.templates.map(statement => ({
+                id: statement.id,
+                title: statement.title,
+                max_score: statement.max_score
+            }))
+        }));
+
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
+exports.submitManagerEvaluation = async (req, res) => {
+    try {
+        const { employee_id, date, evaluations } = req.body;
+
+        // Flatten the evaluations array into allEvaluation
+        const allEvaluation = [
+            ...evaluations[0].statements,
+            ...evaluations[1].statements,
+            ...evaluations[2].statements
+        ];
+
+        // Build bulk insert data
+        const records = allEvaluation.map(ev => ({
+            employee_id,
+            date,
+            status: 'confirmed',
+            score: ev.score,
+            template_id: ev.id
+        }));
+
+        // Insert bulk data
+        await ManagerEvaluation.bulkCreate(records);
+
+        res.json({
+            success: true,
+            count: records.length,
+            message: `${records.length} evaluations submitted successfully`
+        });
+    } catch (err) {
+        console.error("Error submitting manager evaluation:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to submit manager evaluation",
+            error: err.message
+        });
+    }
+};
+
+exports.getManagerEvaluations = async (req, res) => {
+    try {
+
+        const { id } = req.params;
+        
+        const evaluations = await ManagerEvaluation.findAll({
+            attributes: ['id', 'score', 'date', 'status'],
+            where: { employee_id: id },
+            include: [
+                {
+                    model: ManagerEvaluationTemplate,
+                    as: 'template',
+                    attributes: ['title', 'max_score']
+                }
+            ],
+            order: [['id', 'ASC']]
+        });
+
+        res.json({
+            success: true,
+            data: evaluations
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};

@@ -1917,6 +1917,7 @@ exports.watomsFormsScore = async (req, res) => {
                 id,
                 name: orgName,
                 location: orgLocation || "",
+                managerId: orgManager[0].id,
                 managerFirstName: orgManager[0].first_name,
                 managerMiddleName: orgManager[0].middle_name,
                 managerLastName: orgManager[0].last_name,
