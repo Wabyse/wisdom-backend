@@ -1,4 +1,4 @@
-const { PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, Employee } = require("../db/models");
+const { PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment } = require("../db/models");
 const path = require("path");
 require("dotenv").config();
 
@@ -200,7 +200,7 @@ exports.getManagerEvaluations = async (req, res) => {
     try {
 
         const { id } = req.params;
-        
+
         const evaluations = await ManagerEvaluation.findAll({
             attributes: ['id', 'score', 'date', 'status'],
             where: { employee_id: id },
@@ -223,6 +223,161 @@ exports.getManagerEvaluations = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
+exports.getEmployeeEvaluation = async (req, res) => {
+    try {
+
+        const { id, month } = req.params;
+
+        if (!id || !month) {
+            return res.status(400).json({
+                success: false,
+                message: "employee_id and month are required"
+            });
+        }
+
+        const evaluations = await ManagerEvaluation.findAll({
+            attributes: ['id', 'score', 'date', 'status'],
+            where: { employee_id: id, date: month },
+            include: [
+                {
+                    model: ManagerEvaluationTemplate,
+                    as: 'template',
+                    attributes: ['title', 'max_score']
+                }
+            ],
+            order: [['id', 'ASC']]
+        });
+
+        res.json({
+            success: true,
+            data: evaluations
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
+exports.updateManagerEvaluation = async (req, res) => {
+    try {
+        const { employee_id, date, evaluations } = req.body;
+
+        // Flatten evaluations into a single array
+        const allEvaluation = [
+            ...evaluations[0].statements,
+            ...evaluations[1].statements,
+            ...evaluations[2].statements,
+        ];
+
+        // Loop and update each record
+        for (const ev of allEvaluation) {
+            await ManagerEvaluation.update(
+                { score: ev.score }, // update only score
+                {
+                    where: {
+                        employee_id,
+                        date,
+                        template_id: ev.id, // template id is the link to the statement
+                    },
+                }
+            );
+        }
+
+        res.json({
+            success: true,
+            count: allEvaluation.length,
+            message: `${allEvaluation.length} evaluations updated successfully`,
+        });
+    } catch (err) {
+        console.error("Error updating manager evaluation:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update manager evaluation",
+            error: err.message,
+        });
+    }
+};
+
+exports.submitOrgTaskAvg = async (req, res) => {
+    try {
+        const { score, date, organization_id } = req.body;
+
+        // Build bulk insert data
+        const taskScore = await TempOrgAvgTask.create({
+            score,
+            date,
+            organization_id,
+        });
+
+        res.json({
+            success: true,
+            taskScore
+        });
+    } catch (err) {
+        console.error("Error submitting manager evaluation:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to submit manager evaluation",
+            error: err.message
+        });
+    }
+};
+
+exports.getOrgTasksAvg = async (req, res) => {
+    try {
+
+        const { id } = req.params;
+
+        const avgTasks = await TempOrgAvgTask.findAll({
+            attributes: ['id', 'score', 'date', 'organization_id'],
+            where: { organization_id: id },
+            order: [['id', 'ASC']]
+        });
+
+        res.json({
+            success: true,
+            data: avgTasks
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
+exports.submitManagerComment = async (req, res) => {
+    try {
+        const { comment, type, date, employee_id } = req.body;
+
+        // Build bulk insert data
+        const managerComment = await ManagerComment.create({
+            comment,
+            type,
+            date,
+            employee_id
+        });
+
+        res.json({
+            success: true,
+            managerComment
+        });
+    } catch (err) {
+        console.error("Error submitting manager evaluation:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to submit manager evaluation",
             error: err.message
         });
     }

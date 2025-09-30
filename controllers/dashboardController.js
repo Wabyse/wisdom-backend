@@ -241,7 +241,7 @@ function calculateOverAllScore(tg, te, t, ip, dd, po, qd, w, tr, tra, tv, cp, st
     const tqbm = tgScore && tScore ? (tgScore * 40) + (teScore * 35) + (tScore * 25) : (teScore * 100);
     const govbm = (ipScore * 15) + (ddScore * 30) + (poScore * 20) + (qdScore * 20) + (wScore * 15);
     const acbm = (trScore * 40) + (tgScore * 60);
-    const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (tvScore * 0.05) + (cpScore * 0.1);
+    const geebm = acbm === 0 ? (tqbm * 0.3) + (govbm * 0.45)+ (tra * 0.1) + (tvScore * 0.05) + (cpScore * 0.1) : (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (tvScore * 0.05) + (cpScore * 0.1);
 
     return {
         avgTG: tgScore,
@@ -411,7 +411,7 @@ function calculateEachMonthScore(month, tg, te, t, ip, dd, po, qd, w, tr, tra, t
     const tqbm = filteredTG && filteredT ? (filteredTG * 40) + (filteredTE * 35) + (filteredT * 25) : (filteredTE * 100);
     const govbm = (filteredIP * 15) + (filteredDD * 30) + (filteredPO * 20) + (filteredQD * 20) + (filteredW * 15);
     const acbm = (filteredTR * 40) + (filteredTG * 60);
-    const geebm = (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1);
+    const geebm = acbm === 0 ? (tqbm * 0.3) + (govbm * 0.45) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1) : (tqbm * 0.3) + (govbm * 0.25) + (acbm * 0.2) + (tra * 0.1) + (filteredTV * 0.05) + (filteredCP * 0.1);
     const totalScore = geebm;
     // let color = '#ef4444';
     // if (totalScore >= 70) {
