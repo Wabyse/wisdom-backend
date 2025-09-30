@@ -1,4 +1,4 @@
-const { PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment } = require("../db/models");
+const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment } = require("../db/models");
 const path = require("path");
 require("dotenv").config();
 
@@ -378,6 +378,40 @@ exports.submitManagerComment = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to submit manager evaluation",
+            error: err.message
+        });
+    }
+};
+
+exports.getManagerComments = async (req, res) => {
+    try {
+
+        const { id } = req.params;
+
+        const managerComments = await ManagerComment.findAll({
+            attributes: ["comment", "type", "date"],
+            where: { employee_id: id },
+            order: [
+                [
+                    sequelize.literal(`CASE 
+                        WHEN type = 'سلبي' THEN 1
+                        WHEN type = 'ايجابي' THEN 2
+                    END`),
+                    "ASC"
+                ],
+                ["date", "DESC"]
+            ]
+        });
+
+        res.json({
+            success: true,
+            data: managerComments
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
             error: err.message
         });
     }

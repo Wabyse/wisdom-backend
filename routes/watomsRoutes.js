@@ -14,5 +14,6 @@ router.patch("/employee/evaluation", watomsController.updateManagerEvaluation);
 router.post("/organization/task-score", watomsController.submitOrgTaskAvg);
 router.get("/organization/task-score/:id", watomsController.getOrgTasksAvg);
 router.post("/manager/comment", watomsController.submitManagerComment);
+router.get("/manager/comment/:id", watomsController.getManagerComments);
 
 module.exports = router;
