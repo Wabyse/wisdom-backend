@@ -499,3 +499,81 @@ exports.employeeMonthlyPerformance = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+exports.wisdomMonthlyPerformance = async (req, res) => {
+  try {
+    const orgs = [1, 2];
+
+    const currentMonth = new Date().getMonth() + 1;
+    const startMonth = 4;
+
+    const monthsArray = [];
+    for (let m = startMonth; m <= currentMonth; m++) {
+      monthsArray.push({
+        monthNumber: m,
+        month: new Date(0, m - 1).toLocaleString("ar", { month: "long" }),
+      });
+    }
+
+    const results = await PointsHistory.findAll({
+      attributes: [
+        [fn("DATE_PART", "month", col("PointsHistory.updatedAt")), "monthNumber"],
+        [fn("SUM", col("point.points")), "totalPoints"],
+      ],
+      include: [
+        {
+          model: UsersPoints,
+          as: "userPoints",
+          required: true,   // force inner join
+          attributes: [],
+          include: [
+            {
+              model: User,
+              as: "user",
+              required: true, // force inner join
+              attributes: [],
+              include: [
+                {
+                  model: Employee,
+                  as: "employee",
+                  required: true, // force inner join
+                  attributes: [],
+                  where: { organization_id: orgs },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          model: RewardsAndPunishments,
+          as: "point",
+          required: true, // force inner join
+          attributes: [],
+        },
+      ],
+      where: { status: "accepted" },
+      group: [fn("DATE_PART", "month", col("PointsHistory.updatedAt"))],
+      raw: true,
+    });
+
+    const months = monthsArray.map((m) => {
+      const found = results.find(
+        (r) => Number(r.monthNumber) === m.monthNumber
+      );
+      return {
+        monthNumber: m.monthNumber,
+        month: m.month,
+        performance: found ? Number(found.totalPoints) : 0,
+      };
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Aggregated performance across selected orgs per month",
+      data: months,
+    });
+  } catch (error) {
+    console.error("Error in monthlyPerformance:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
