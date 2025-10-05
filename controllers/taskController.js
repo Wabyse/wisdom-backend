@@ -87,7 +87,7 @@ exports.assignTask = async (req, res) => {
       sub_category: toInt(sub_category),
       assignedBy_id: toInt(assignedBy_id),
       assignee_id: toInt(assignee_id),
-      sub_task_id: toIntOrNull( sub_task_id),
+      sub_task_id: toIntOrNull(sub_task_id),
       organization_id: toInt(organization_id),
       file_path: file_path ?? null,
     });
@@ -396,6 +396,113 @@ exports.tasksSummary = async (req, res) => {
         totalUrgentTasks: countUrgentTasks,
         totalEvaluationTasks: (avgManager * 0.3) + (avgAssignedBy * 0.5) + Math.round(avgStatus * 100) / 100
       },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.myTasks = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+
+    const Tasks = await Task.findAll({
+      attributes: [
+        "id",
+        "task",
+        "description",
+        "start_date",
+        "end_date",
+        "status",
+        "importance",
+        "file_path",
+        "submit_file_path",
+        "task_size",
+        "assigned_by_evaluation",
+        "manager_evaluation",
+        "sub_task_id",
+        "createdAt",
+        "updatedAt"
+      ],
+      include: [
+        {
+          model: TaskSubCategory,
+          as: "taskSubCategory",
+          required: true,
+          attributes: ["id", "name"],
+          include: [
+            {
+              model: TaskCategory,
+              as: "taskCategory",
+              required: true,
+              attributes: ["id", "name"],
+            },
+          ],
+        },
+        {
+          model: Employee,
+          as: "assigner",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+        },
+        {
+          model: Employee,
+          as: "assignee",
+          required: true,
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+        },
+        {
+          model: Task,
+          as: "subTasks",
+          attributes: [
+            "id",
+            "task",
+            "description",
+            "start_date",
+            "end_date",
+            "status",
+            "importance",
+            "file_path",
+            "submit_file_path",
+            "task_size",
+            "assigned_by_evaluation",
+            "manager_evaluation",
+            "sub_task_id",
+            "createdAt",
+            "updatedAt"
+          ],
+          include: [
+            {
+              model: Employee,
+              as: "assignee",
+              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+            },
+            {
+              model: TaskSubCategory,
+              as: "taskSubCategory",
+              required: true,
+              attributes: ["id", "name"],
+              include: [
+                {
+                  model: TaskCategory,
+                  as: "taskCategory",
+                  required: true,
+                  attributes: ["id", "name"],
+                },
+              ],
+            },
+          ]
+        }
+      ],
+      where: {assignee_id: Number(id)},
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Tasks,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

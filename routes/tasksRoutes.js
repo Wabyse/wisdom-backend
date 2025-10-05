@@ -11,5 +11,6 @@ router.get("/view", taskController.viewTasks);
 router.patch("/updateStatus/:id", upload.single("file"), taskController.updateStatus);
 router.get("/general-info", taskController.generalInfo);
 router.post("/tasks-summary", taskController.tasksSummary);
+router.get("/my-tasks/:id", taskController.myTasks);
 
 module.exports = router;
