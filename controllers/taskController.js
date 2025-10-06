@@ -6,6 +6,7 @@ const {
   sequelize,
 } = require("../db/models");
 const path = require("path");
+const monthsArabic = require('../utils/months');
 
 exports.viewCategories = async (req, res) => {
   try {
@@ -404,10 +405,9 @@ exports.tasksSummary = async (req, res) => {
 
 exports.myTasks = async (req, res) => {
   try {
-
     const { id } = req.params;
 
-    const Tasks = await Task.findAll({
+    const tasks = await Task.findAll({
       attributes: [
         "id",
         "task",
@@ -495,16 +495,39 @@ exports.myTasks = async (req, res) => {
           ]
         }
       ],
-      where: {assignee_id: Number(id)},
-      order: [['createdAt', 'DESC']],
+      where: { assignee_id: Number(id) },
+      order: [['start_date', 'DESC']],
     });
+
+    // --- Group tasks by start_date month ---
+    const grouped = {};
+
+    tasks.forEach(task => {
+      const startDate = new Date(task.start_date);
+      const monthNumber = startDate.getMonth() + 1; // 1-12
+      const monthName = monthsArabic[monthNumber - 1];
+
+      if (!grouped[monthNumber]) {
+        grouped[monthNumber] = {
+          month: monthName,
+          monthNumber,
+          tasks: []
+        };
+      }
+      grouped[monthNumber].tasks.push(task);
+    });
+
+    // Convert grouped object to array sorted by monthNumber
+    const groupedTasks = Object.values(grouped).sort((a, b) => a.monthNumber - b.monthNumber);
 
     res.status(200).json({
       status: "success",
-      message: "data got fetched successfully",
-      Tasks,
+      message: "Data fetched successfully",
+      Tasks: groupedTasks,
     });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error", error });
   }
 };
