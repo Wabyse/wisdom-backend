@@ -87,6 +87,8 @@ module.exports = (sequelize, DataTypes) => {
         Employee.hasMany(models.WatomsEmployeeDocumentCategory, { foreignKey: 'employee_id' });
         Employee.hasMany(models.ManagerEvaluation, { foreignKey: 'employee_id', as: 'manager_evaluations' });
         Employee.hasMany(models.ManagerComment, { foreignKey: 'employee_id', as: 'employee' });
+        Employee.hasMany(models.Task, { foreignKey: 'reviewer_id', as: 'reviewed_tasks' });
+        Employee.hasMany(models.Task, { foreignKey: 'manager_id', as: 'managed_tasks' });
     };
 
     return Employee;

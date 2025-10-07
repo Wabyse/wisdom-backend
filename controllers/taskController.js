@@ -406,6 +406,13 @@ exports.tasksSummary = async (req, res) => {
 exports.myTasks = async (req, res) => {
   try {
     const { id } = req.params;
+    const numericId = Number(id);
+    if (!numericId || isNaN(numericId)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid employee ID provided",
+      });
+    }
 
     const tasks = await Task.findAll({
       attributes: [
@@ -419,8 +426,10 @@ exports.myTasks = async (req, res) => {
         "file_path",
         "submit_file_path",
         "task_size",
-        "assigned_by_evaluation",
-        "manager_evaluation",
+        "reviewer_speed_percentage",
+        "reviewer_quality_percentage",
+        "manager_speed_percentage",
+        "manager_quality_percentage",
         "sub_task_id",
         "createdAt",
         "updatedAt"
@@ -453,6 +462,16 @@ exports.myTasks = async (req, res) => {
           attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
         },
         {
+          model: Employee,
+          as: "reviewer",
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+        },
+        {
+          model: Employee,
+          as: "manager",
+          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+        },
+        {
           model: Task,
           as: "subTasks",
           attributes: [
@@ -466,8 +485,10 @@ exports.myTasks = async (req, res) => {
             "file_path",
             "submit_file_path",
             "task_size",
-            "assigned_by_evaluation",
-            "manager_evaluation",
+            "reviewer_speed_percentage",
+            "reviewer_quality_percentage",
+            "manager_speed_percentage",
+            "manager_quality_percentage",
             "sub_task_id",
             "createdAt",
             "updatedAt"
@@ -476,6 +497,16 @@ exports.myTasks = async (req, res) => {
             {
               model: Employee,
               as: "assignee",
+              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+            },
+            {
+              model: Employee,
+              as: "reviewer",
+              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
+            },
+            {
+              model: Employee,
+              as: "manager",
               attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
             },
             {

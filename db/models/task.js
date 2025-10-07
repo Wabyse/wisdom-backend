@@ -70,6 +70,44 @@ module.exports = (sequelize, DataTypes) => {
         manager_evaluation: {
             type: DataTypes.INTEGER,
         },
+        reviewer_speed_percentage: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        manager_speed_percentage: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        reviewer_quality_percentage: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        manager_quality_percentage: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0,
+        },
+        reviewer_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'employees',
+                key: 'id',
+            },
+            onDelete: 'SET NULL',
+        },
+        manager_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'employees',
+                key: 'id',
+            },
+            onDelete: 'SET NULL',
+        },
         sub_task_id: {
             type: DataTypes.INTEGER,
             allowNull: true,
@@ -105,6 +143,8 @@ module.exports = (sequelize, DataTypes) => {
         Task.belongsTo(models.TaskSubCategory, { foreignKey: 'sub_category', as: 'taskSubCategory' });
         Task.belongsTo(models.Employee, { foreignKey: 'assignedBy_id', as: 'assigner' });
         Task.belongsTo(models.Employee, { foreignKey: 'assignee_id', as: 'assignee' });
+        Task.belongsTo(models.Employee, { foreignKey: 'reviewer_id', as: 'reviewer' });
+        Task.belongsTo(models.Employee, { foreignKey: 'manager_id', as: 'manager' });
         Task.belongsTo(models.Task, { foreignKey: 'sub_task_id', as: 'mainTask' });
         Task.hasMany(models.Task, { foreignKey: 'sub_task_id', as: 'subTasks' });
     };
