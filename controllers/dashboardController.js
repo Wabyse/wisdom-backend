@@ -1722,7 +1722,7 @@ exports.watomsFormsScore = async (req, res) => {
                 start,
                 end)
 
-            const resultsThisRun = Array.from({ length: 9 }, (_, i) => {
+            const resultsThisRun = Array.from({ length: currentMonth }, (_, i) => {
                 const month1 = i + 1;
                 return calculateEachMonthScore(
                     month1,
