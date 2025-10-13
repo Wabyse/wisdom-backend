@@ -300,7 +300,7 @@ const fetchAllUsers = async (req, res) => {
 const fetchAllOrgs = async (req, res) => {
   try {
     const data = await Organization.findAll({
-      attributes: ["id", "name", "type"],
+      attributes: ["id", "name", "type", "authority_id"],
     });
 
     res.status(200).json({
