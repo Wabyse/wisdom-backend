@@ -1,10 +1,4 @@
-const {
-  TaskCategory,
-  TaskSubCategory,
-  Task,
-  Employee,
-  sequelize,
-} = require("../db/models");
+const { Task, TaskDetail, User, Employee, Organization, Program, Project, Authority, sequelize } = require("../db/models");
 const path = require("path");
 const monthsArabic = require('../utils/months');
 
@@ -34,31 +28,39 @@ exports.viewCategories = async (req, res) => {
 exports.assignTask = async (req, res) => {
   try {
     const {
-      task,
-      description,
+      task_details,
       start_date,
       end_date,
       importance,
-      task_size,
-      sub_category,
-      assignedBy_id,
+      size,
+      assigner_id,
       assignee_id,
-      sub_task_id,
-      organization_id
+      reviewer_id,
+      manager_id,
+      organization_id,
+      project_id,
+      program_id,
+      authority_id,
+      system
     } = req.body;
 
     // Check for missing fields
     if (
-      !task ||
-      !description ||
+      !Array.isArray(task_details) ||
+      task_details.length === 0 ||
       !start_date ||
       !end_date ||
       !importance ||
-      !task_size ||
-      !sub_category ||
-      !assignedBy_id ||
+      !size ||
+      !assigner_id ||
       !assignee_id ||
-      !organization_id
+      !reviewer_id ||
+      !manager_id ||
+      !organization_id ||
+      !program_id ||
+      !project_id ||
+      !authority_id ||
+      !system
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -69,33 +71,37 @@ exports.assignTask = async (req, res) => {
       file_path = path.join("uploads", req.file.filename);
     }
 
-    const toIntOrNull = (v) =>
-      v === undefined || v === null || v === '' || String(v).toLowerCase() === 'null'
-        ? null
-        : parseInt(v, 10);
-
-    const toInt = (v) => (v === undefined || v === null ? null : parseInt(v, 10));
-
     // Create task
     const addTask = await Task.create({
-      task,
-      description,
       start_date,
       end_date,
-      status: "not started yet",
       importance,
-      task_size,
-      sub_category: toInt(sub_category),
-      assignedBy_id: toInt(assignedBy_id),
-      assignee_id: toInt(assignee_id),
-      sub_task_id: toIntOrNull(sub_task_id),
-      organization_id: toInt(organization_id),
+      size,
+      assigner_id: Number(assigner_id),
+      assignee_id: Number(assignee_id),
+      reviewer_id: Number(reviewer_id),
+      manager_id: Number(manager_id),
       file_path: file_path ?? null,
+      organization_id: Number(organization_id),
+      program_id: Number(program_id),
+      project_id: Number(project_id),
+      authority_id: Number(authority_id),
+      system,
     });
+
+    const taskDetailsToInsert = task_details.map(detail => ({
+      task_id: addTask.id,
+      title: detail.title,
+      description: detail.description || null,
+      note: detail.note || null
+    }));
+
+    await TaskDetail.bulkCreate(taskDetailsToInsert);
 
     res.status(201).json({
       message: "Task assigned successfully",
       task: addTask,
+      task_details: taskDetailsToInsert,
     });
   } catch (error) {
     console.error("Sequelize Validation Error:", error);
@@ -103,96 +109,112 @@ exports.assignTask = async (req, res) => {
   }
 };
 
-exports.viewTasks = async (req, res) => {
+exports.ebdaeduViewTasks = async (req, res) => {
   try {
     const Tasks = await Task.findAll({
       attributes: [
         "id",
-        "task",
-        "description",
         "start_date",
         "end_date",
-        "status",
         "importance",
+        "size",
         "file_path",
-        "submit_file_path",
-        "task_size",
-        "assigned_by_evaluation",
-        "manager_evaluation",
-        "sub_task_id",
+        "assignee_status",
+        "manager_status",
+        "manager_quality",
+        "manager_speed",
+        "reviewer_status",
+        "reviewer_quality",
+        "reviewer_speed",
+        "system",
         "createdAt",
         "updatedAt"
       ],
       include: [
         {
-          model: TaskSubCategory,
-          as: "taskSubCategory",
-          required: true,
-          attributes: ["id", "name"],
-          include: [
-            {
-              model: TaskCategory,
-              as: "taskCategory",
-              required: true,
-              attributes: ["id", "name"],
-            },
-          ],
-        },
-        {
-          model: Employee,
+          model: User,
           as: "assigner",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Employee,
-          as: "assignee",
-          required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Task,
-          as: "subTasks",
-          attributes: [
-            "id",
-            "task",
-            "description",
-            "start_date",
-            "end_date",
-            "status",
-            "importance",
-            "file_path",
-            "submit_file_path",
-            "task_size",
-            "assigned_by_evaluation",
-            "manager_evaluation",
-            "sub_task_id",
-            "createdAt",
-            "updatedAt"
-          ],
           include: [
             {
               model: Employee,
-              as: "assignee",
-              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-            },
-            {
-              model: TaskSubCategory,
-              as: "taskSubCategory",
+              as: "employee",
               required: true,
-              attributes: ["id", "name"],
-              include: [
-                {
-                  model: TaskCategory,
-                  as: "taskCategory",
-                  required: true,
-                  attributes: ["id", "name"],
-                },
-              ],
+              attributes: ["id", "first_name", "middle_name", "last_name"],
             },
           ]
+        },
+        {
+          model: User,
+          as: "assignee",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "reviewer",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "manager",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: Organization,
+          as: "organization",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Program,
+          as: "program",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Project,
+          as: "project",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Authority,
+          as: "authority",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "title", "description", "note"],
         }
+
       ],
+      where: { system: "ebdaedu" },
       order: [['createdAt', 'DESC']],
     });
 
@@ -202,7 +224,248 @@ exports.viewTasks = async (req, res) => {
       Tasks,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error("❌ viewTasks error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.wisdomViewTasks = async (req, res) => {
+  try {
+    const Tasks = await Task.findAll({
+      attributes: [
+        "id",
+        "start_date",
+        "end_date",
+        "importance",
+        "size",
+        "file_path",
+        "assignee_status",
+        "manager_status",
+        "manager_quality",
+        "manager_speed",
+        "reviewer_status",
+        "reviewer_quality",
+        "reviewer_speed",
+        "system",
+        "createdAt",
+        "updatedAt"
+      ],
+      include: [
+        {
+          model: User,
+          as: "assigner",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "assignee",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "reviewer",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "manager",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: Organization,
+          as: "organization",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Program,
+          as: "program",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Project,
+          as: "project",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Authority,
+          as: "authority",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "title", "description", "note"],
+        }
+
+      ],
+      where: { system: "wisdom" },
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Tasks,
+    });
+  } catch (error) {
+    console.error("❌ viewTasks error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.watomsViewTasks = async (req, res) => {
+  try {
+    const Tasks = await Task.findAll({
+      attributes: [
+        "id",
+        "start_date",
+        "end_date",
+        "importance",
+        "size",
+        "file_path",
+        "assignee_status",
+        "manager_status",
+        "manager_quality",
+        "manager_speed",
+        "reviewer_status",
+        "reviewer_quality",
+        "reviewer_speed",
+        "system",
+        "createdAt",
+        "updatedAt"
+      ],
+      include: [
+        {
+          model: User,
+          as: "assigner",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "assignee",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "reviewer",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "manager",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: Organization,
+          as: "organization",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Program,
+          as: "program",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Project,
+          as: "project",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Authority,
+          as: "authority",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "title", "description", "note"],
+        }
+
+      ],
+      where: { system: "watoms" },
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Tasks,
+    });
+  } catch (error) {
+    console.error("❌ viewTasks error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -231,75 +494,84 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
-exports.generalInfo = async (req, res) => {
+exports.ebdaeduGeneralInfo = async (req, res) => {
   try {
-    const ORG_IDS = [4, 5, 7, 8, 9];
-
-    const includeAssigneeWithOrgFilter = {
-      model: Employee,
-      as: 'assignee',
-      where: {
-        organization_id: ORG_IDS
-      }
-    };
 
     const countTotalTasks = await Task.count({
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "ebdaedu" }
     });
 
     const countNormalTasks = await Task.count({
-      where: { importance: 'normal' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'normal', system: "ebdaedu" }
     });
 
     const countImportantTasks = await Task.count({
-      where: { importance: 'important' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'important', system: "ebdaedu" }
     });
 
     const countUrgentTasks = await Task.count({
-      where: { importance: 'urgent' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'urgent', system: "ebdaedu" }
     });
 
-    let avgManagerEvaluation = await Task.findOne({
+    let avgAssigneeStatus = await Task.findOne({
       attributes: [
-        [sequelize.fn('AVG', sequelize.col('manager_evaluation')), 'averageManager']
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
       ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "ebdaedu" }
     });
 
-    let avgAssignedByEvaluation = await Task.findOne({
+    let avgManagerQuality = await Task.findOne({
       attributes: [
-        [sequelize.fn('AVG', sequelize.col('assigned_by_evaluation')), 'averageAssignedBy']
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
       ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "ebdaedu" }
     });
 
-    const avgManager = avgManagerEvaluation.averageMarks ? avgManagerEvaluation.averageMarks : 0;
-    const avgAssignedBy = avgAssignedByEvaluation.averageAssignedBy ? avgAssignedByEvaluation.averageAssignedBy : 0;
-
-    let allStatus = await Task.findAll({
-      attributes: ["status"]
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
-    })
+      where: { system: "ebdaedu" }
+    });
 
-    let sumStatus = 0;
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
 
-    for (let i = 0; i < allStatus.length; i++) {
-      if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
-        sumStatus += 0;
-      } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {
-        sumStatus += 100;
-      } else {
-        sumStatus += Number(allStatus[i].dataValues.status)
-      }
-    }
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
 
-    const avgStatus = (sumStatus / allStatus.length) * 0.2
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
 
     res.status(200).json({
       status: "success",
@@ -309,7 +581,7 @@ exports.generalInfo = async (req, res) => {
         totalNormalTasks: countNormalTasks,
         totalImportantTasks: countImportantTasks,
         totalUrgentTasks: countUrgentTasks,
-        totalEvaluationTasks: (avgManager * 0.3) + (avgAssignedBy * 0.5) + Math.round(avgStatus * 100) / 100
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.3)
       },
     });
   } catch (error) {
@@ -317,75 +589,84 @@ exports.generalInfo = async (req, res) => {
   }
 };
 
-exports.tasksSummary = async (req, res) => {
+exports.wisdomGeneralInfo = async (req, res) => {
   try {
-    const ORG_IDS = [4, 5, 7, 8, 9];
-
-    const includeAssigneeWithOrgFilter = {
-      model: Employee,
-      as: 'assignee',
-      where: {
-        organization_id: ORG_IDS
-      }
-    };
 
     const countTotalTasks = await Task.count({
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "wisdom" }
     });
 
     const countNormalTasks = await Task.count({
-      where: { importance: 'normal' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'normal', system: "wisdom" }
     });
 
     const countImportantTasks = await Task.count({
-      where: { importance: 'important' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'important', system: "wisdom" }
     });
 
     const countUrgentTasks = await Task.count({
-      where: { importance: 'urgent' },
-      include: [includeAssigneeWithOrgFilter]
+      where: { importance: 'urgent', system: "wisdom" }
     });
 
-    let avgManagerEvaluation = await Task.findOne({
+    let avgAssigneeStatus = await Task.findOne({
       attributes: [
-        [sequelize.fn('AVG', sequelize.col('manager_evaluation')), 'averageManager']
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
       ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "wisdom" }
     });
 
-    let avgAssignedByEvaluation = await Task.findOne({
+    let avgManagerQuality = await Task.findOne({
       attributes: [
-        [sequelize.fn('AVG', sequelize.col('assigned_by_evaluation')), 'averageAssignedBy']
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
       ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
+      where: { system: "wisdom" }
     });
 
-    const avgManager = avgManagerEvaluation.averageMarks ? avgManagerEvaluation.averageMarks : 0;
-    const avgAssignedBy = avgAssignedByEvaluation.averageAssignedBy ? avgAssignedByEvaluation.averageAssignedBy : 0;
-
-    let allStatus = await Task.findAll({
-      attributes: ["status"]
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
     }, {
-      include: [includeAssigneeWithOrgFilter]
-    })
+      where: { system: "wisdom" }
+    });
 
-    let sumStatus = 0;
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
 
-    for (let i = 0; i < allStatus.length; i++) {
-      if (allStatus[i].dataValues.status === "not started yet" || allStatus[i].dataValues.status === "in progress" || allStatus[i].dataValues.status === "on hold" || allStatus[i].dataValues.status === "past the due date") {
-        sumStatus += 0;
-      } else if (allStatus[i].dataValues.status === "finished" || allStatus[i].dataValues.status === "submitted" || allStatus[i].dataValues.status === "under review") {
-        sumStatus += 100;
-      } else {
-        sumStatus += Number(allStatus[i].dataValues.status)
-      }
-    }
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
 
-    const avgStatus = (sumStatus / allStatus.length) * 0.2
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
 
     res.status(200).json({
       status: "success",
@@ -395,7 +676,387 @@ exports.tasksSummary = async (req, res) => {
         totalNormalTasks: countNormalTasks,
         totalImportantTasks: countImportantTasks,
         totalUrgentTasks: countUrgentTasks,
-        totalEvaluationTasks: (avgManager * 0.3) + (avgAssignedBy * 0.5) + Math.round(avgStatus * 100) / 100
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.3)
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.watomsGeneralInfo = async (req, res) => {
+  try {
+
+    const countTotalTasks = await Task.count({
+      where: { system: "watoms" }
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal', system: "watoms" }
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important', system: "watoms" }
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent', system: "watoms" }
+    });
+
+    let avgAssigneeStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.3)
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.ebdaEduTasksSummary = async (req, res) => {
+  try {
+
+    const countTotalTasks = await Task.count({
+      where: { system: "ebdaedu" }
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal', system: "ebdaedu" }
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important', system: "ebdaedu" }
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent', system: "ebdaedu" }
+    });
+
+    let avgAssigneeStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgManagerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "ebdaedu" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.2)
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.wisdomTasksSummary = async (req, res) => {
+  try {
+
+    const countTotalTasks = await Task.count({
+      where: { system: "wisdom" }
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal', system: "wisdom" }
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important', system: "wisdom" }
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent', system: "wisdom" }
+    });
+
+    let avgAssigneeStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgManagerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "wisdom" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.2)
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.watomsTasksSummary = async (req, res) => {
+  try {
+
+    const countTotalTasks = await Task.count({
+      where: { system: "watoms" }
+    });
+
+    const countNormalTasks = await Task.count({
+      where: { importance: 'normal', system: "watoms" }
+    });
+
+    const countImportantTasks = await Task.count({
+      where: { importance: 'important', system: "watoms" }
+    });
+
+    const countUrgentTasks = await Task.count({
+      where: { importance: 'urgent', system: "watoms" }
+    });
+
+    let avgAssigneeStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('assignee_status')), 'averageAssigneeStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_quality')), 'averageManagerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_speed')), 'averageManagerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgManagerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('manager_status')), 'averageManagerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerQuality = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_quality')), 'averageReviewerQuality']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerSpeed = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_speed')), 'averageReviewerSpeed']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    let avgReviewerStatus = await Task.findOne({
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('reviewer_status')), 'averageReviewerStatus']
+      ], raw: true,
+    }, {
+      where: { system: "watoms" }
+    });
+
+    const avgAssignee = avgAssigneeStatus?.averageAssigneeStatus;
+    const avgReviewer = (avgReviewerSpeed?.averageReviewerSpeed * 0.3) + (avgReviewerQuality?.averageReviewerQuality * 0.3) + (avgReviewerStatus?.averageReviewerStatus * 0.4);
+    const avgManager = (avgManagerSpeed?.averageManagerSpeed * 0.3) + (avgManagerQuality?.averageManagerQuality * 0.3) + (avgManagerStatus?.averageManagerStatus * 0.4);
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      generalData: {
+        totalTasks: countTotalTasks,
+        totalNormalTasks: countNormalTasks,
+        totalImportantTasks: countImportantTasks,
+        totalUrgentTasks: countUrgentTasks,
+        totalEvaluationTasks: (avgManager * 0.3) + (avgReviewer * 0.5) + (avgAssignee * 0.2)
       },
     });
   } catch (error) {
@@ -405,129 +1066,120 @@ exports.tasksSummary = async (req, res) => {
 
 exports.myTasks = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id, system } = req.params;
     const numericId = Number(id);
     if (!numericId || isNaN(numericId)) {
       return res.status(400).json({
         status: "error",
-        message: "Invalid employee ID provided",
+        message: "Invalid user ID provided",
       });
     }
 
     const tasks = await Task.findAll({
       attributes: [
         "id",
-        "task",
-        "description",
         "start_date",
         "end_date",
-        "status",
         "importance",
+        "size",
         "file_path",
-        "submit_file_path",
-        "task_size",
-        "reviewer_speed_percentage",
-        "reviewer_quality_percentage",
-        "manager_speed_percentage",
-        "manager_quality_percentage",
-        "sub_task_id",
+        "assignee_status",
+        "manager_status",
+        "manager_quality",
+        "manager_speed",
+        "reviewer_status",
+        "reviewer_quality",
+        "reviewer_speed",
+        "system",
         "createdAt",
         "updatedAt"
       ],
       include: [
         {
-          model: TaskSubCategory,
-          as: "taskSubCategory",
-          required: true,
-          attributes: ["id", "name"],
-          include: [
-            {
-              model: TaskCategory,
-              as: "taskCategory",
-              required: true,
-              attributes: ["id", "name"],
-            },
-          ],
-        },
-        {
-          model: Employee,
+          model: User,
           as: "assigner",
           required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Employee,
-          as: "assignee",
-          required: true,
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Employee,
-          as: "reviewer",
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Employee,
-          as: "manager",
-          attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-        },
-        {
-          model: Task,
-          as: "subTasks",
-          attributes: [
-            "id",
-            "task",
-            "description",
-            "start_date",
-            "end_date",
-            "status",
-            "importance",
-            "file_path",
-            "submit_file_path",
-            "task_size",
-            "reviewer_speed_percentage",
-            "reviewer_quality_percentage",
-            "manager_speed_percentage",
-            "manager_quality_percentage",
-            "sub_task_id",
-            "createdAt",
-            "updatedAt"
-          ],
           include: [
             {
               model: Employee,
-              as: "assignee",
-              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-            },
-            {
-              model: Employee,
-              as: "reviewer",
-              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-            },
-            {
-              model: Employee,
-              as: "manager",
-              attributes: ["id", "first_name", "middle_name", "last_name", "organization_id"],
-            },
-            {
-              model: TaskSubCategory,
-              as: "taskSubCategory",
+              as: "employee",
               required: true,
-              attributes: ["id", "name"],
-              include: [
-                {
-                  model: TaskCategory,
-                  as: "taskCategory",
-                  required: true,
-                  attributes: ["id", "name"],
-                },
-              ],
+              attributes: ["id", "first_name", "middle_name", "last_name"],
             },
           ]
+        },
+        {
+          model: User,
+          as: "assignee",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "reviewer",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "manager",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: Organization,
+          as: "organization",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Program,
+          as: "program",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Project,
+          as: "project",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Authority,
+          as: "authority",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "title", "description", "note"],
         }
+
       ],
-      where: { assignee_id: Number(id) },
-      order: [['start_date', 'DESC']],
+      where: { system: system, assignee_id: id },
+      order: [['createdAt', 'DESC']],
     });
 
     // --- Group tasks by start_date month ---
@@ -536,8 +1188,7 @@ exports.myTasks = async (req, res) => {
     tasks.forEach(task => {
       const startDate = new Date(task.start_date);
       const monthNumber = startDate.getMonth() + 1; // 1-12
-      const monthName = monthsArabic[monthNumber - 1];
-
+      const monthName = monthsArabic.monthsArabic[monthNumber - 1];
       if (!grouped[monthNumber]) {
         grouped[monthNumber] = {
           month: monthName,

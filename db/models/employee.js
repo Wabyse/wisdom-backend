@@ -79,16 +79,12 @@ module.exports = (sequelize, DataTypes) => {
         Employee.hasMany(models.EmployeeAbsence, { foreignKey: 'employee_id', as: 'absences' });
         Employee.hasMany(models.Substitute, { foreignKey: 'substitute_id', as: 'replacement' });
         Employee.hasMany(models.Substitute, { foreignKey: 'replacement_id', as: 'substitute' });
-        Employee.hasMany(models.Task, { foreignKey: 'assignedBy_id', as: 'assigner_tasks' });
-        Employee.hasMany(models.Task, { foreignKey: 'assignee_id', as: 'assignee_tasks' });
         Employee.hasOne(models.Teacher, { foreignKey: 'employee_id', as: 'teacher' });
         Employee.hasMany(models.WorkLatness, { foreignKey: 'emp_id', as: 'latness' });
         Employee.hasMany(models.TeacherEvaluation, { foreignKey: 'employee_id', as: 'evaluates' });
         Employee.hasMany(models.WatomsEmployeeDocumentCategory, { foreignKey: 'employee_id' });
         Employee.hasMany(models.ManagerEvaluation, { foreignKey: 'employee_id', as: 'manager_evaluations' });
         Employee.hasMany(models.ManagerComment, { foreignKey: 'employee_id', as: 'employee' });
-        Employee.hasMany(models.Task, { foreignKey: 'reviewer_id', as: 'reviewed_tasks' });
-        Employee.hasMany(models.Task, { foreignKey: 'manager_id', as: 'managed_tasks' });
     };
 
     return Employee;

@@ -6,45 +6,25 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             type: DataTypes.INTEGER,
         },
-        task: {
-            type: DataTypes.STRING,
-            allowNull: false
-        },
-        description: {
-            type: DataTypes.TEXT
-        },
         start_date: {
             type: DataTypes.DATE
         },
         end_date: {
             type: DataTypes.DATE
         },
-        status: {
-            allowNull: false,
-            type: DataTypes.ENUM('0', '25', '50', '75', 'finished', 'on hold', 'in progress', 'past the due date', 'submitted', 'under review', 'not started yet'),
-        },
         importance: {
             allowNull: false,
             type: DataTypes.ENUM('normal', 'important', 'urgent'),
         },
-        task_size: {
+        size: {
             allowNull: false,
             type: DataTypes.ENUM('small', 'medium', 'large'),
         },
-        sub_category: {
+        assigner_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'task_sub_categories',
-                key: 'id',
-            },
-            onDelete: 'RESTRICT'
-        },
-        assignedBy_id: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: 'employees',
+                model: 'users',
                 key: 'id',
             },
             onDelete: 'RESTRICT'
@@ -53,48 +33,16 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'employees',
+                model: 'users',
                 key: 'id',
             },
             onDelete: 'RESTRICT'
-        },
-        file_path: {
-            type: DataTypes.TEXT
-        },
-        submit_file_path: {
-            type: DataTypes.TEXT
-        },
-        assigned_by_evaluation: {
-            type: DataTypes.INTEGER,
-        },
-        manager_evaluation: {
-            type: DataTypes.INTEGER,
-        },
-        reviewer_speed_percentage: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 0,
-        },
-        manager_speed_percentage: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 0,
-        },
-        reviewer_quality_percentage: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 0,
-        },
-        manager_quality_percentage: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 0,
         },
         reviewer_id: {
             type: DataTypes.INTEGER,
             allowNull: true,
             references: {
-                model: 'employees',
+                model: 'users',
                 key: 'id',
             },
             onDelete: 'SET NULL',
@@ -103,19 +51,48 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: true,
             references: {
-                model: 'employees',
+                model: 'users',
                 key: 'id',
             },
             onDelete: 'SET NULL',
         },
-        sub_task_id: {
+        file_path: {
+            type: DataTypes.TEXT
+        },
+        assignee_status: {
+            allowNull: false,
             type: DataTypes.INTEGER,
-            allowNull: true,
-            references: {
-                model: 'tasks',
-                key: 'id',
-            },
-            onDelete: 'RESTRICT'
+            defaultValue: 0,
+        },
+        manager_status: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+        },
+        manager_quality: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+        },
+        manager_speed: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+        },
+        reviewer_status: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+        },
+        reviewer_quality: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+        },
+        reviewer_speed: {
+            allowNull: false,
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
         },
         organization_id: {
             type: DataTypes.INTEGER,
@@ -125,6 +102,37 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'id',
             },
             onDelete: 'RESTRICT'
+        },
+        project_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'projects',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
+        program_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'programs',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
+        authority_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'authorities',
+                key: 'id',
+            },
+            onDelete: 'RESTRICT'
+        },
+        system: {
+            allowNull: false,
+            type: DataTypes.ENUM('watoms', 'wisdom', 'ebdaedu'),
         },
         deleted: {
             type: DataTypes.BOOLEAN,
@@ -140,13 +148,15 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Task.associate = (models) => {
-        Task.belongsTo(models.TaskSubCategory, { foreignKey: 'sub_category', as: 'taskSubCategory' });
-        Task.belongsTo(models.Employee, { foreignKey: 'assignedBy_id', as: 'assigner' });
-        Task.belongsTo(models.Employee, { foreignKey: 'assignee_id', as: 'assignee' });
-        Task.belongsTo(models.Employee, { foreignKey: 'reviewer_id', as: 'reviewer' });
-        Task.belongsTo(models.Employee, { foreignKey: 'manager_id', as: 'manager' });
-        Task.belongsTo(models.Task, { foreignKey: 'sub_task_id', as: 'mainTask' });
-        Task.hasMany(models.Task, { foreignKey: 'sub_task_id', as: 'subTasks' });
+        Task.belongsTo(models.User, { foreignKey: 'assigner_id', as: 'assigner' });
+        Task.belongsTo(models.User, { foreignKey: 'assignee_id', as: 'assignee' });
+        Task.belongsTo(models.User, { foreignKey: 'reviewer_id', as: 'reviewer' });
+        Task.belongsTo(models.User, { foreignKey: 'manager_id', as: 'manager' });
+        Task.belongsTo(models.Organization, { foreignKey: 'organization_id', as: 'organization' });
+        Task.belongsTo(models.Program, { foreignKey: 'program_id', as: 'program' });
+        Task.belongsTo(models.Project, { foreignKey: 'project_id', as: 'project' });
+        Task.belongsTo(models.Authority, { foreignKey: 'authority_id', as: 'authority' });
+        Task.hasMany(models.TaskDetail, { foreignKey: 'task_id', as: 'details' });
     };
 
     return Task;
