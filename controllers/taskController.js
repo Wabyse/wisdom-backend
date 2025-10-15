@@ -44,10 +44,17 @@ exports.assignTask = async (req, res) => {
       system
     } = req.body;
 
+    let parsedTaskDetails;
+
+    try {
+      parsedTaskDetails = JSON.parse(task_details);
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid JSON in task_details" });
+    }
     // Check for missing fields
     if (
-      !Array.isArray(task_details) ||
-      task_details.length === 0 ||
+      !Array.isArray(parsedTaskDetails) ||
+      parsedTaskDetails.length === 0 ||
       !start_date ||
       !end_date ||
       !importance ||
@@ -64,6 +71,7 @@ exports.assignTask = async (req, res) => {
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
+
 
     // Handle file upload
     let file_path = null;
@@ -89,7 +97,7 @@ exports.assignTask = async (req, res) => {
       system,
     });
 
-    const taskDetailsToInsert = task_details.map(detail => ({
+    const taskDetailsToInsert = parsedTaskDetails.map(detail => ({
       task_id: addTask.id,
       title: detail.title,
       description: detail.description || null,
@@ -1210,6 +1218,169 @@ exports.myTasks = async (req, res) => {
 
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.fetchTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const numericId = Number(id);
+    if (!numericId || isNaN(numericId)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid task ID provided",
+      });
+    }
+
+    const task = await Task.findAll({
+      attributes: [
+        "id",
+        "start_date",
+        "end_date",
+        "importance",
+        "size",
+        "file_path",
+        "assignee_status",
+        "manager_status",
+        "manager_quality",
+        "manager_speed",
+        "reviewer_status",
+        "reviewer_quality",
+        "reviewer_speed",
+        "system",
+        "createdAt",
+        "updatedAt"
+      ],
+      include: [
+        {
+          model: User,
+          as: "assigner",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "assignee",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "reviewer",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: User,
+          as: "manager",
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ]
+        },
+        {
+          model: Organization,
+          as: "organization",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Program,
+          as: "program",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Project,
+          as: "project",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: Authority,
+          as: "authority",
+          required: true,
+          attributes: ["id", "name"],
+        },
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "title", "description", "note"],
+        }
+
+      ],
+      where: { id: id },
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Data fetched successfully",
+      task,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+exports.updateTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignee_status, task_details } = req.body;
+
+    await Task.update({ assignee_status }, { where: { id } });
+
+    let parsedTaskDetails;
+
+    try {
+      parsedTaskDetails = JSON.parse(task_details);
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid JSON in task_details" });
+    }
+
+    const taskDetailsToInsert = parsedTaskDetails.map(detail => ({
+      task_id: id,
+      title: detail.title,
+      description: detail.description || null,
+      note: detail.note || null
+    }));
+
+    await TaskDetail.bulkCreate(taskDetailsToInsert);
+
+    res.status(200).json({
+      status: "success",
+      message: "task got updated successfully",
+    });
+  } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
 };
