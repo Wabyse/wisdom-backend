@@ -16,6 +16,74 @@ const {
 const { comparePassword, hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
 
+const ebdaEdulogin = async (req, res) => {
+  try {
+    const { code, password } = req.body;
+    if (!code || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const user = await User.findOne({ where: { code } });
+    const employee = await Employee.findOne({ where: { user_id: user.id } });
+    if (!employee || employee.organization_id !== 3) {
+      return res.status(401).json({ message: "Invalid code or password" });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid code or password" });
+    }
+
+    const userRole = await UserRole.findOne({ where: { id: user.role_id } });
+
+    let organization = null;
+    let department = null; // Declare organization outside the if block
+    let employeeRole = null;
+
+    if (employee) {
+      organization = await Organization.findOne({
+        where: { id: employee.organization_id },
+      });
+    }
+    employeeRole = await EmployeeRole.findOne({
+      where: { id: employee.role_id },
+    });
+    if (employeeRole && (employeeRole.title === "Teacher" || employeeRole.title === "HOD")) {
+      const teacher = await Teacher.findOne({
+        where: { employee_id: employee.id },
+      });
+      department = await Department.findOne({
+        where: { id: teacher.department_id },
+      });
+    }
+
+
+    const isMatch = await comparePassword(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid code or password" });
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      id: user.id,
+      code: user.code,
+      name: `${employee.first_name} ${employee.middle_name} ${employee.last_name}`,
+      organization_id: organization ? organization.id : null,
+      department_id: department ? department.id : null,
+      user_role: userRole.title,
+      employee_id: employee.id,
+      employee_role: employeeRole.title,
+      email: employee.email,
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
 const login = async (req, res) => {
   try {
     const { code, password } = req.body;
@@ -509,4 +577,4 @@ const adminLogin = async (req, res) => {
   }
 };
 
-module.exports = { signup, login, adminSignup, adminLogin, signupBulk };
+module.exports = { signup, ebdaEdulogin, login, adminSignup, adminLogin, signupBulk };
