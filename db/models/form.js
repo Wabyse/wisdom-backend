@@ -22,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
         },
         type: {
-            type: DataTypes.ENUM('360 Individual Assessment', 'ClassRoom Observation', '360 Curriculum Assessment', 'normal', 'curriculum', 'normal2')
+            type: DataTypes.ENUM('360 Individual Assessment', 'ClassRoom Observation', '360 Curriculum Assessment', 'normal', 'curriculum', 'normal2', 'Watoms ClassRoom Observation')
         },
         deleted: {
             type: DataTypes.BOOLEAN,
