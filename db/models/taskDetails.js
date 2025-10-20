@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
       },
       onDelete: 'CASCADE',
     },
+    order: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -27,6 +31,15 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    status: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+    },
+    end_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
     deleted: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -38,7 +51,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'task_details',
     timestamps: false, // no createdAt or updatedAt
-    paranoid: false,   // we manage deletion manually with deleted + deletedAt
+    paranoid: false,   // manual soft delete with deleted + deletedAt
   });
 
   TaskDetail.associate = (models) => {

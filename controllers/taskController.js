@@ -97,11 +97,13 @@ exports.assignTask = async (req, res) => {
       system,
     });
 
-    const taskDetailsToInsert = parsedTaskDetails.map(detail => ({
+    const taskDetailsToInsert = parsedTaskDetails.map((detail, idx) => ({
       task_id: addTask.id,
+      order: idx + 1,
       title: detail.title,
       description: detail.description || null,
-      note: detail.note || null
+      note: detail.note || null,
+      end_date: detail.end_date
     }));
 
     await TaskDetail.bulkCreate(taskDetailsToInsert);
@@ -218,7 +220,7 @@ exports.ebdaeduViewTasks = async (req, res) => {
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "title", "description", "note"],
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
         }
 
       ],
@@ -338,7 +340,7 @@ exports.wisdomViewTasks = async (req, res) => {
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "title", "description", "note"],
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
         }
 
       ],
@@ -458,7 +460,7 @@ exports.watomsViewTasks = async (req, res) => {
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "title", "description", "note"],
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
         }
 
       ],
@@ -1182,7 +1184,7 @@ exports.myTasks = async (req, res) => {
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "title", "description", "note"],
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
         }
 
       ],
@@ -1332,7 +1334,7 @@ exports.fetchTask = async (req, res) => {
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "title", "description", "note"],
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
         }
 
       ],
