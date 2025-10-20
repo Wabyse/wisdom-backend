@@ -2099,6 +2099,16 @@ exports.watomsCROScore = async (req, res) => {
             raw: true
         });
 
+        const trainers = await db.Teacher.findAll({
+            attributes: ["id", "employee_id", "subject_id"],
+            raw: true
+        });
+
+        const subjects = await db.Subject.findAll({
+            attributes: ["id", "name"],
+            raw: true
+        });
+
         const croForm = await db.Form.findOne({ attributes: ["id"], where: { code: "OB | CRO" }, raw: true });
         const croFields = await db.Field.findAll({ attributes: ["id", "ar_name"], where: { form_id: croForm.id }, raw: true });
         const fieldIds = croFields.map(f => f.id);
@@ -2181,7 +2191,31 @@ exports.watomsCROScore = async (req, res) => {
                 for (const [assesseeId, empResults] of Object.entries(employeeResults)) {
                     const emp = orgEmployees.find(e => e.user_id === parseInt(assesseeId));
                     const fullName = [emp?.first_name, emp?.middle_name, emp?.last_name].filter(Boolean).join(" ") || "Unknown Employee";
-
+                    const trainer = trainers.find(e => e.employee_id === Number(emp.id));
+                    const subject = subjects.find(e => e.id === trainer.subject_id);
+                    const auth = await db.Authority.findOne({
+                        include: [
+                            {
+                                model: db.Project,
+                                as: "projects", // check alias in Authority model
+                                include: [
+                                    {
+                                        model: db.Program,
+                                        as: "programs",
+                                        // ❌ remove through here — Program belongsTo Project
+                                        include: [
+                                            {
+                                                model: db.Organization,
+                                                as: "organizations", // ✅ correct alias
+                                                through: { attributes: [] }, // ✅ keep this one (many-to-many)
+                                                where: { id: emp.organization_id },
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    });
                     const fieldScores = {};
 
                     for (const qr of empResults) {
@@ -2205,6 +2239,8 @@ exports.watomsCROScore = async (req, res) => {
 
                     employeesScores.push({
                         name: fullName,
+                        subject: subject.name,
+                        authority: auth.name,
                         scores: avgFieldScores
                     });
                 }
