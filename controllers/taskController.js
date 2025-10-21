@@ -2,148 +2,23 @@ const { Task, TaskDetail, User, Employee, Organization, Program, Project, Author
 const path = require("path");
 const monthsArabic = require('../utils/months');
 
-exports.viewCategories = async (req, res) => {
-  try {
-    const categories = await TaskCategory.findAll({
-      attributes: ["id", "name"],
-      include: [
-        {
-          model: TaskSubCategory,
-          as: "subCategory",
-          required: true,
-          attributes: ["id", "name"],
-        },
-      ],
-    });
-    res.status(200).json({
-      status: "success",
-      message: "data got fetched successfully",
-      categories,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error });
-  }
-};
-
-exports.assignTask = async (req, res) => {
-  try {
-    const {
-      task_details,
-      start_date,
-      end_date,
-      importance,
-      size,
-      assigner_id,
-      assignee_id,
-      reviewer_id,
-      manager_id,
-      organization_id,
-      project_id,
-      program_id,
-      authority_id,
-      system
-    } = req.body;
-
-    let parsedTaskDetails;
-
-    try {
-      parsedTaskDetails = JSON.parse(task_details);
-    } catch (err) {
-      return res.status(400).json({ message: "Invalid JSON in task_details" });
-    }
-    // Check for missing fields
-    if (
-      !Array.isArray(parsedTaskDetails) ||
-      parsedTaskDetails.length === 0 ||
-      !start_date ||
-      !end_date ||
-      !importance ||
-      !size ||
-      !assigner_id ||
-      !assignee_id ||
-      !reviewer_id ||
-      !manager_id ||
-      !organization_id ||
-      !program_id ||
-      !project_id ||
-      !authority_id ||
-      !system
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-
-    // Handle file upload
-    let file_path = null;
-    if (req.file) {
-      file_path = path.join("uploads", req.file.filename);
-    }
-
-    // Create task
-    const addTask = await Task.create({
-      start_date,
-      end_date,
-      importance,
-      size,
-      assigner_id: Number(assigner_id),
-      assignee_id: Number(assignee_id),
-      reviewer_id: Number(reviewer_id),
-      manager_id: Number(manager_id),
-      file_path: file_path ?? null,
-      organization_id: Number(organization_id),
-      program_id: Number(program_id),
-      project_id: Number(project_id),
-      authority_id: Number(authority_id),
-      system,
-    });
-
-    const taskDetailsToInsert = parsedTaskDetails.map((detail, idx) => ({
-      task_id: addTask.id,
-      order: idx + 1,
-      title: detail.title,
-      description: detail.description || null,
-      note: detail.note || null,
-      end_date: detail.end_date
-    }));
-
-    await TaskDetail.bulkCreate(taskDetailsToInsert);
-
-    res.status(201).json({
-      message: "Task assigned successfully",
-      task: addTask,
-      task_details: taskDetailsToInsert,
-    });
-  } catch (error) {
-    console.error("Sequelize Validation Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
 exports.ebdaeduViewTasks = async (req, res) => {
   try {
     const Tasks = await Task.findAll({
       attributes: [
-        "id",
-        "start_date",
-        "end_date",
-        "importance",
-        "size",
-        "file_path",
-        "assignee_status",
-        "manager_status",
-        "manager_quality",
-        "manager_speed",
-        "reviewer_status",
-        "reviewer_quality",
-        "reviewer_speed",
-        "system",
-        "createdAt",
-        "updatedAt"
+        "id", "title", "description", "note",
+        "start_date", "end_date", "importance",
+        "size", "file_path", "assignee_status",
+        "manager_status", "manager_quality",
+        "manager_speed", "reviewer_status",
+        "reviewer_quality", "reviewer_speed",
+        "system", "createdAt", "updatedAt",
       ],
+      where: { system: "ebdaedu" },
       include: [
-        {
+        ...["assigner", "assignee", "reviewer", "manager"].map((role) => ({
           model: User,
-          as: "assigner",
+          as: role,
           required: true,
           include: [
             {
@@ -152,80 +27,26 @@ exports.ebdaeduViewTasks = async (req, res) => {
               required: true,
               attributes: ["id", "first_name", "middle_name", "last_name"],
             },
-          ]
-        },
-        {
-          model: User,
-          as: "assignee",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "reviewer",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "manager",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: Organization,
-          as: "organization",
+          ],
+        })),
+        ...[
+          { model: Organization, as: "organization" },
+          { model: Program, as: "program" },
+          { model: Project, as: "project" },
+          { model: Authority, as: "authority" },
+        ].map(({ model, as }) => ({
+          model,
+          as,
           required: true,
           attributes: ["id", "name"],
-        },
-        {
-          model: Program,
-          as: "program",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Project,
-          as: "project",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Authority,
-          as: "authority",
-          required: true,
-          attributes: ["id", "name"],
-        },
+        })),
         {
           model: TaskDetail,
           as: "details",
           attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
-        }
-
+        },
       ],
-      where: { system: "ebdaedu" },
-      order: [['createdAt', 'DESC']],
+      order: [["createdAt", "DESC"]],
     });
 
     res.status(200).json({
@@ -243,27 +64,19 @@ exports.wisdomViewTasks = async (req, res) => {
   try {
     const Tasks = await Task.findAll({
       attributes: [
-        "id",
-        "start_date",
-        "end_date",
-        "importance",
-        "size",
-        "file_path",
-        "assignee_status",
-        "manager_status",
-        "manager_quality",
-        "manager_speed",
-        "reviewer_status",
-        "reviewer_quality",
-        "reviewer_speed",
-        "system",
-        "createdAt",
-        "updatedAt"
+        "id", "title", "description", "note",
+        "start_date", "end_date", "importance",
+        "size", "file_path", "assignee_status",
+        "manager_status", "manager_quality",
+        "manager_speed", "reviewer_status",
+        "reviewer_quality", "reviewer_speed",
+        "system", "createdAt", "updatedAt",
       ],
+      where: { system: "wisdom" },
       include: [
-        {
+        ...["assigner", "assignee", "reviewer", "manager"].map((role) => ({
           model: User,
-          as: "assigner",
+          as: role,
           required: true,
           include: [
             {
@@ -272,80 +85,26 @@ exports.wisdomViewTasks = async (req, res) => {
               required: true,
               attributes: ["id", "first_name", "middle_name", "last_name"],
             },
-          ]
-        },
-        {
-          model: User,
-          as: "assignee",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "reviewer",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "manager",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: Organization,
-          as: "organization",
+          ],
+        })),
+        ...[
+          { model: Organization, as: "organization" },
+          { model: Program, as: "program" },
+          { model: Project, as: "project" },
+          { model: Authority, as: "authority" },
+        ].map(({ model, as }) => ({
+          model,
+          as,
           required: true,
           attributes: ["id", "name"],
-        },
-        {
-          model: Program,
-          as: "program",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Project,
-          as: "project",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Authority,
-          as: "authority",
-          required: true,
-          attributes: ["id", "name"],
-        },
+        })),
         {
           model: TaskDetail,
           as: "details",
           attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
-        }
-
+        },
       ],
-      where: { system: "wisdom" },
-      order: [['createdAt', 'DESC']],
+      order: [["createdAt", "DESC"]],
     });
 
     res.status(200).json({
@@ -358,6 +117,170 @@ exports.wisdomViewTasks = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+exports.watomsViewTasks = async (req, res) => {
+  try {
+    const Tasks = await Task.findAll({
+      attributes: [
+        "id", "title", "description", "note",
+        "start_date", "end_date", "importance",
+        "size", "file_path", "assignee_status",
+        "manager_status", "manager_quality",
+        "manager_speed", "reviewer_status",
+        "reviewer_quality", "reviewer_speed",
+        "system", "createdAt", "updatedAt",
+      ],
+      where: { system: "watoms" },
+      include: [
+        ...["assigner", "assignee", "reviewer", "manager"].map((role) => ({
+          model: User,
+          as: role,
+          required: true,
+          include: [
+            {
+              model: Employee,
+              as: "employee",
+              required: true,
+              attributes: ["id", "first_name", "middle_name", "last_name"],
+            },
+          ],
+        })),
+        ...[
+          { model: Organization, as: "organization" },
+          { model: Program, as: "program" },
+          { model: Project, as: "project" },
+          { model: Authority, as: "authority" },
+        ].map(({ model, as }) => ({
+          model,
+          as,
+          required: true,
+          attributes: ["id", "name"],
+        })),
+        {
+          model: TaskDetail,
+          as: "details",
+          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "data got fetched successfully",
+      Tasks,
+    });
+  } catch (error) {
+    console.error("❌ viewTasks error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.assignTask = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const {
+      task_details,
+      title,
+      description,
+      note,
+      start_date,
+      end_date,
+      importance,
+      size,
+      assigner_id,
+      assignee_id,
+      reviewer_id,
+      manager_id,
+      organization_id,
+      project_id,
+      program_id,
+      authority_id,
+      system,
+    } = req.body;
+
+    // Parse and validate task_details
+    let parsedTaskDetails;
+    try {
+      parsedTaskDetails = JSON.parse(task_details);
+      if (!Array.isArray(parsedTaskDetails) || parsedTaskDetails.length === 0) {
+        await t.rollback();
+        return res.status(400).json({ message: "task_details must be a non-empty array" });
+      }
+    } catch {
+      await t.rollback();
+      return res.status(400).json({ message: "Invalid JSON in task_details" });
+    }
+
+    // Validate required fields
+    const requiredFields = {
+      title, description, start_date, end_date, importance, size,
+      assigner_id, assignee_id, reviewer_id, manager_id,
+      organization_id, project_id, program_id, authority_id, system,
+    };
+
+    for (const [key, value] of Object.entries(requiredFields)) {
+      if (!value) {
+        await t.rollback();
+        return res.status(400).json({ message: `Missing field: ${key}` });
+      }
+    }
+
+    // Handle file upload
+    const file_path = req.file ? path.join("uploads", req.file.filename) : null;
+
+    // Create Task inside transaction
+    const task = await Task.create(
+      {
+        title,
+        description,
+        note,
+        start_date,
+        end_date,
+        importance,
+        size,
+        assigner_id: Number(assigner_id),
+        assignee_id: Number(assignee_id),
+        reviewer_id: Number(reviewer_id),
+        manager_id: Number(manager_id),
+        file_path,
+        organization_id: Number(organization_id),
+        program_id: Number(program_id),
+        project_id: Number(project_id),
+        authority_id: Number(authority_id),
+        system,
+      },
+      { transaction: t }
+    );
+
+    // Create Task Details
+    const taskDetailsToInsert = parsedTaskDetails.map((detail, index) => ({
+      task_id: task.id,
+      order: index + 1,
+      title: detail.title?.trim(),
+      description: detail.description || null,
+      note: detail.note || null,
+      end_date: detail.end_date,
+    }));
+
+    await TaskDetail.bulkCreate(taskDetailsToInsert, { transaction: t });
+
+    // Commit if all succeeded
+    await t.commit();
+
+    res.status(201).json({
+      message: "Task assigned successfully",
+      task,
+      task_details: taskDetailsToInsert,
+    });
+  } catch (error) {
+    //Rollback on failure
+    await t.rollback();
+    console.error("❌ assignTask Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+}
 
 exports.watomsViewTasks = async (req, res) => {
   try {
@@ -1078,6 +1001,8 @@ exports.myTasks = async (req, res) => {
   try {
     const { id, system } = req.params;
     const numericId = Number(id);
+
+    // Validate inputs
     if (!numericId || isNaN(numericId)) {
       return res.status(400).json({
         status: "error",
@@ -1085,29 +1010,23 @@ exports.myTasks = async (req, res) => {
       });
     }
 
+    // User's tasks
     const tasks = await Task.findAll({
       attributes: [
-        "id",
-        "start_date",
-        "end_date",
-        "importance",
-        "size",
-        "file_path",
-        "assignee_status",
-        "manager_status",
-        "manager_quality",
-        "manager_speed",
-        "reviewer_status",
-        "reviewer_quality",
-        "reviewer_speed",
-        "system",
-        "createdAt",
-        "updatedAt"
+        "id", "title", "description", "note",
+        "start_date", "end_date", "importance",
+        "size", "file_path", "assignee_status",
+        "manager_status", "manager_quality",
+        "manager_speed", "reviewer_status",
+        "reviewer_quality", "reviewer_speed",
+        "system", "createdAt", "updatedAt",
       ],
+      where: { system, assignee_id: numericId },
+      order: [["createdAt", "DESC"]],
       include: [
-        {
+        ...["assigner", "assignee", "reviewer", "manager"].map((role) => ({
           model: User,
-          as: "assigner",
+          as: role,
           required: true,
           include: [
             {
@@ -1116,111 +1035,58 @@ exports.myTasks = async (req, res) => {
               required: true,
               attributes: ["id", "first_name", "middle_name", "last_name"],
             },
-          ]
-        },
-        {
-          model: User,
-          as: "assignee",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "reviewer",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "manager",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: Organization,
-          as: "organization",
+          ],
+        })),
+        ...[
+          { model: Organization, as: "organization" },
+          { model: Program, as: "program" },
+          { model: Project, as: "project" },
+          { model: Authority, as: "authority" },
+        ].map(({ model, as }) => ({
+          model,
+          as,
           required: true,
           attributes: ["id", "name"],
-        },
-        {
-          model: Program,
-          as: "program",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Project,
-          as: "project",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Authority,
-          as: "authority",
-          required: true,
-          attributes: ["id", "name"],
-        },
+        })),
         {
           model: TaskDetail,
           as: "details",
           attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
-        }
-
+        },
       ],
-      where: { system: system, assignee_id: id },
-      order: [['createdAt', 'DESC']],
     });
 
-    // --- Group tasks by start_date month ---
-    const grouped = {};
+    // Group tasks by month
+    const groupedTasks = Object.values(
+      tasks.reduce((acc, task) => {
+        const month = new Date(task.start_date).getMonth();
+        const monthNumber = month + 1;
+        const monthName = monthsArabic.monthsArabic[month];
+        if (!acc[monthNumber]) {
+          acc[monthNumber] = {
+            month: monthName,
+            monthNumber,
+            tasks: [],
+          };
+        }
+        acc[monthNumber].tasks.push(task);
+        return acc;
+      }, {})
+    ).sort((a, b) => a.monthNumber - b.monthNumber);
 
-    tasks.forEach(task => {
-      const startDate = new Date(task.start_date);
-      const monthNumber = startDate.getMonth() + 1; // 1-12
-      const monthName = monthsArabic.monthsArabic[monthNumber - 1];
-      if (!grouped[monthNumber]) {
-        grouped[monthNumber] = {
-          month: monthName,
-          monthNumber,
-          tasks: []
-        };
-      }
-      grouped[monthNumber].tasks.push(task);
-    });
-
-    // Convert grouped object to array sorted by monthNumber
-    const groupedTasks = Object.values(grouped).sort((a, b) => a.monthNumber - b.monthNumber);
-
+    // Respond
     res.status(200).json({
       status: "success",
       message: "Data fetched successfully",
       Tasks: groupedTasks,
     });
-
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error });
+    console.error("❌ myTasks Error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -1228,6 +1094,8 @@ exports.fetchTask = async (req, res) => {
   try {
     const { id } = req.params;
     const numericId = Number(id);
+
+    // Validate Task ID
     if (!numericId || isNaN(numericId)) {
       return res.status(400).json({
         status: "error",
@@ -1235,29 +1103,23 @@ exports.fetchTask = async (req, res) => {
       });
     }
 
-    const task = await Task.findAll({
+    // Fetch Task
+    const task = await Task.findOne({
       attributes: [
-        "id",
-        "start_date",
-        "end_date",
-        "importance",
-        "size",
-        "file_path",
-        "assignee_status",
-        "manager_status",
-        "manager_quality",
-        "manager_speed",
-        "reviewer_status",
-        "reviewer_quality",
-        "reviewer_speed",
-        "system",
-        "createdAt",
-        "updatedAt"
+        "id", "title", "description", "note",
+        "start_date", "end_date", "importance",
+        "size", "file_path", "assignee_status",
+        "manager_status", "manager_quality",
+        "manager_speed", "reviewer_status",
+        "reviewer_quality", "reviewer_speed",
+        "system", "createdAt", "updatedAt",
       ],
+      where: { id: numericId },
+      order: [["createdAt", "DESC"]],
       include: [
-        {
+        ...["assigner", "assignee", "reviewer", "manager"].map((role) => ({
           model: User,
-          as: "assigner",
+          as: role,
           required: true,
           include: [
             {
@@ -1266,91 +1128,56 @@ exports.fetchTask = async (req, res) => {
               required: true,
               attributes: ["id", "first_name", "middle_name", "last_name"],
             },
-          ]
-        },
-        {
-          model: User,
-          as: "assignee",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "reviewer",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: User,
-          as: "manager",
-          required: true,
-          include: [
-            {
-              model: Employee,
-              as: "employee",
-              required: true,
-              attributes: ["id", "first_name", "middle_name", "last_name"],
-            },
-          ]
-        },
-        {
-          model: Organization,
-          as: "organization",
+          ],
+        })),
+        ...[
+          { model: Organization, as: "organization" },
+          { model: Program, as: "program" },
+          { model: Project, as: "project" },
+          { model: Authority, as: "authority" },
+        ].map(({ model, as }) => ({
+          model,
+          as,
           required: true,
           attributes: ["id", "name"],
-        },
-        {
-          model: Program,
-          as: "program",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Project,
-          as: "project",
-          required: true,
-          attributes: ["id", "name"],
-        },
-        {
-          model: Authority,
-          as: "authority",
-          required: true,
-          attributes: ["id", "name"],
-        },
+        })),
         {
           model: TaskDetail,
           as: "details",
-          attributes: ["id", "order", "title", "description", "note", "status", "end_date"],
-        }
-
+          attributes: [
+            "id",
+            "order",
+            "title",
+            "description",
+            "note",
+            "status",
+            "end_date",
+          ],
+        },
       ],
-      where: { id: id },
-      order: [['createdAt', 'DESC']],
     });
 
+    // Handle Not Found
+    if (!task) {
+      return res.status(404).json({
+        status: "error",
+        message: "Task not found",
+      });
+    }
+
+    // Success Response
     res.status(200).json({
       status: "success",
-      message: "Data fetched successfully",
+      message: "Task fetched successfully",
       task,
     });
-
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error });
+    console.error("❌ fetchTask Error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 

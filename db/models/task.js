@@ -6,6 +6,18 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             type: DataTypes.INTEGER,
         },
+        title: {
+            type: DataTypes.STRING,
+            allowNull: false,
+        },
+        description: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+        note: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
         start_date: {
             type: DataTypes.DATE
         },
