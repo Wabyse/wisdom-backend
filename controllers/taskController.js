@@ -1182,34 +1182,94 @@ exports.fetchTask = async (req, res) => {
 };
 
 exports.updateTask = async (req, res) => {
+  const t = await sequelize.transaction();
+
   try {
     const { id } = req.params;
     const { assignee_status, task_details } = req.body;
 
-    await Task.update({ assignee_status }, { where: { id } });
-
-    let parsedTaskDetails;
-
-    try {
-      parsedTaskDetails = JSON.parse(task_details);
-    } catch (err) {
-      return res.status(400).json({ message: "Invalid JSON in task_details" });
+    // Parse task_details safely
+    let parsedTaskDetails = [];
+    if (task_details) {
+      try {
+        parsedTaskDetails = JSON.parse(task_details);
+        if (!Array.isArray(parsedTaskDetails)) {
+          await t.rollback();
+          return res.status(400).json({ message: "task_details must be an array" });
+        }
+      } catch {
+        await t.rollback();
+        return res.status(400).json({ message: "Invalid JSON in task_details" });
+      }
     }
 
-    const taskDetailsToInsert = parsedTaskDetails.map(detail => ({
-      task_id: id,
-      title: detail.title,
-      description: detail.description || null,
-      note: detail.note || null
-    }));
+    // Update Task (if provided)
+    if (assignee_status !== undefined && assignee_status !== null) {
+      await Task.update(
+        { assignee_status },
+        { where: { id }, transaction: t }
+      );
+    }
 
-    await TaskDetail.bulkCreate(taskDetailsToInsert);
+    // Split details into new & old
+    const newDetails = parsedTaskDetails.filter(
+      (item) => typeof item.id === "string" && item.id.startsWith("new-")
+    );
+
+    const oldDetails = parsedTaskDetails.filter(
+      (item) =>
+        item.id &&
+        Number.isInteger(Number(item.id)) &&
+        !item.id.toString().startsWith("new-")
+    );
+
+    // Insert new details (if any)
+    if (newDetails.length > 0) {
+      const taskDetailsToInsert = newDetails.map((detail) => ({
+        task_id: id,
+        order: detail.order,
+        title: detail.title,
+        description: detail.description || null,
+        note: detail.note || null,
+        end_date: detail.end_date,
+        status: detail.status ?? 0,
+      }));
+
+      await TaskDetail.bulkCreate(taskDetailsToInsert, { transaction: t });
+    }
+
+    // Update old details (if any)
+    if (oldDetails.length > 0) {
+      await Promise.all(
+        oldDetails.map((detail) =>
+          TaskDetail.update(
+            {
+              order: detail.order,
+              status: detail.status,
+            },
+            {
+              where: { id: detail.id },
+              transaction: t,
+            }
+          )
+        )
+      );
+    }
+
+    // Commit transaction
+    await t.commit();
 
     res.status(200).json({
       status: "success",
-      message: "task got updated successfully",
+      message: "Task updated successfully",
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    await t.rollback();
+    console.error("❌ updateTask Error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
