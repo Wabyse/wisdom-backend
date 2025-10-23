@@ -14,6 +14,7 @@ router.get('/wisdom/centers', dashboardController.wisdomCenters);
 router.get('/wisdom/center/:id/evaluation-breakdown', dashboardController.wisdomCenterEvaluationBreakdown);
 router.get('/wisdom/center/:organizationId/annual-performance', dashboardController.getAnnualPerformanceData);
 router.get('/wisdom/center/:organizationId/project-units-ranking', dashboardController.getProjectUnitsRanking);
+router.get('/wisdom/cro/evaluation', dashboardController.wisdomCROScore);
 router.get('/center/:organizationId/project-units-ranking', dashboardController.getProjectUnitsRanking);
 router.get('/demo/forms/score', dashboardController.demoFormsScore);
 

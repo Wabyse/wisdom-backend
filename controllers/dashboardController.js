@@ -2109,7 +2109,212 @@ exports.watomsCROScore = async (req, res) => {
             raw: true
         });
 
-        const croForm = await db.Form.findOne({ attributes: ["id"], where: { code: "OB | CRO" }, raw: true });
+        const croForm = await db.Form.findOne({ attributes: ["id"], where: { code: "OB | CRO", type: "Watoms ClassRoom Observation" }, raw: true });
+        const croFields = await db.Field.findAll({ attributes: ["id", "ar_name"], where: { form_id: croForm.id }, raw: true });
+        const fieldIds = croFields.map(f => f.id);
+
+        const croSubFields = await db.SubField.findAll({ attributes: ["id", "field_id"], where: { field_id: fieldIds }, raw: true });
+        const subFieldMap = {};
+        croSubFields.forEach(sf => (subFieldMap[sf.id] = sf.field_id));
+
+        const croQuestions = await db.Question.findAll({
+            attributes: ["id", "ar_name", "max_score", "manifest_code", "sub_field_id"],
+            where: { sub_field_id: Object.keys(subFieldMap) },
+            raw: true
+        });
+        const questionIds = croQuestions.map(q => q.id);
+
+        const questionMap = {};
+        croQuestions.forEach(q => (questionMap[q.id] = q));
+
+        const fieldMap = {};
+        croFields.forEach(f => (fieldMap[f.id] = f));
+
+        // Arabic recommendation rules
+        const getRecommendation = (percent) => {
+            if (percent <= 50) return "إرشاد وتوجيه";
+            if (percent <= 60) return "ورشة عمل";
+            if (percent <= 70) return "دوائر تعلم";
+            if (percent <= 80) return "تعلم الأقران";
+            if (percent <= 90) return "تدريس مصغر";
+            if (percent <= 95) return "تعلم ذاتي";
+            return "تعلم ذاتي";
+        };
+
+        const finalResult = [];
+
+        // === Loop through each organization ===
+        for (const org of organizations) {
+            const orgEmployees = employees.filter(e => e.organization_id === org.id);
+            const relatedUserIds = orgEmployees.map(e => e.user_id);
+
+            const orgMonths = [];
+
+            // Loop through months (April → current)
+            for (const monthObj of monthsRange) {
+                const { month, monthNumber } = monthObj;
+                const monthStart = new Date(Date.UTC(currentYear, monthNumber - 1, 1, 0, 0, 0, 0));
+                const monthEnd = new Date(Date.UTC(currentYear, monthNumber, 1, 0, 0, 0, 0));
+
+                // Get question results for this org + month
+                const croQuestionResults = await db.QuestionResult.findAll({
+                    attributes: ["id", "report_id", "question_id", "score"],
+                    include: [
+                        {
+                            model: db.IndividualReport,
+                            as: "report",
+                            attributes: ["id", "Assessee_id", "createdAt"],
+                            where: {
+                                Assessee_id: relatedUserIds,
+                                createdAt: { [db.Sequelize.Op.between]: [monthStart, monthEnd] }
+                            }
+                        }
+                    ],
+                    where: { question_id: questionIds },
+                    raw: true
+                });
+
+                if (!croQuestionResults.length) {
+                    orgMonths.push({ month, monthNumber, reports: [] });
+                    continue;
+                }
+
+                // Group results by employee
+                const employeeResults = {};
+                for (const qr of croQuestionResults) {
+                    const assesseeId = qr["report.Assessee_id"];
+                    if (!employeeResults[assesseeId]) employeeResults[assesseeId] = [];
+                    employeeResults[assesseeId].push(qr);
+                }
+
+                const employeesScores = [];
+                for (const [assesseeId, empResults] of Object.entries(employeeResults)) {
+                    const emp = orgEmployees.find(e => e.user_id === parseInt(assesseeId));
+                    const fullName = [emp?.first_name, emp?.middle_name, emp?.last_name].filter(Boolean).join(" ") || "Unknown Employee";
+                    const trainer = trainers.find(e => e.employee_id === Number(emp.id));
+                    const subject = subjects.find(e => e.id === trainer.subject_id);
+                    const auth = await db.Authority.findOne({
+                        include: [
+                            {
+                                model: db.Project,
+                                as: "projects", // check alias in Authority model
+                                include: [
+                                    {
+                                        model: db.Program,
+                                        as: "programs",
+                                        // ❌ remove through here — Program belongsTo Project
+                                        include: [
+                                            {
+                                                model: db.Organization,
+                                                as: "organizations", // ✅ correct alias
+                                                through: { attributes: [] }, // ✅ keep this one (many-to-many)
+                                                where: { id: emp.organization_id },
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    });
+                    const fieldScores = {};
+
+                    for (const qr of empResults) {
+                        const question = questionMap[qr.question_id];
+                        if (!question) continue;
+                        const fieldId = subFieldMap[question.sub_field_id];
+                        if (!fieldScores[fieldId]) fieldScores[fieldId] = [];
+                        const ratio = qr.score / question.max_score;
+                        fieldScores[fieldId].push(ratio);
+                    }
+
+                    const avgFieldScores = Object.entries(fieldScores).map(([fieldId, ratios]) => {
+                        const avg = (ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100;
+                        return {
+                            field_id: parseInt(fieldId),
+                            field_name: fieldMap[fieldId]?.ar_name || "Unknown Field",
+                            avg_score: +avg.toFixed(2),
+                            recommendation: getRecommendation(avg)
+                        };
+                    });
+
+                    employeesScores.push({
+                        name: fullName,
+                        subject: subject.name,
+                        authority: auth.name,
+                        scores: avgFieldScores
+                    });
+                }
+
+                orgMonths.push({
+                    month,
+                    monthNumber,
+                    reports: employeesScores
+                });
+            }
+
+            finalResult.push({
+                id: org.id,
+                name: org.name,
+                months: orgMonths
+            });
+        }
+
+        res.json(finalResult);
+    } catch (error) {
+        console.error("Error in watomsCROScore:", error);
+        res.status(500).json({
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+// Watoms CRO Scores
+exports.wisdomCROScore = async (req, res) => {
+    try {
+        const staticIds = [1, 2];
+
+        // Arabic month names
+        const arabicMonths = [
+            "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+            "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+        ];
+
+        // Get current month and year
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentYear = now.getFullYear();
+
+        // Range: from April (4) → current month
+        const monthsRange = [];
+        for (let m = 4; m <= currentMonth; m++) {
+            monthsRange.push({ month: arabicMonths[m - 1], monthNumber: m });
+        }
+
+        // === Static data ===
+        const organizations = await db.Organization.findAll({
+            attributes: ["id", "name"],
+            where: { id: staticIds, type: "school" },
+            raw: true
+        });
+
+        const employees = await db.Employee.findAll({
+            attributes: ["id", "user_id", "organization_id", "first_name", "middle_name", "last_name"],
+            where: { role_id: 1 },
+            raw: true
+        });
+
+        const trainers = await db.Teacher.findAll({
+            attributes: ["id", "employee_id", "subject_id"],
+            raw: true
+        });
+
+        const subjects = await db.Subject.findAll({
+            attributes: ["id", "name"],
+            raw: true
+        });
+
+        const croForm = await db.Form.findOne({ attributes: ["id"], where: { code: "OB | CRO", type: "Wisdom ClassRoom Observation" }, raw: true });
         const croFields = await db.Field.findAll({ attributes: ["id", "ar_name"], where: { form_id: croForm.id }, raw: true });
         const fieldIds = croFields.map(f => f.id);
 
