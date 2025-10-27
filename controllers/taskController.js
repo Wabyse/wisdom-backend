@@ -200,17 +200,19 @@ exports.assignTask = async (req, res) => {
       system,
     } = req.body;
 
-    // Parse and validate task_details
-    let parsedTaskDetails;
-    try {
-      parsedTaskDetails = JSON.parse(task_details);
-      if (!Array.isArray(parsedTaskDetails) || parsedTaskDetails.length === 0) {
+    // Parse and validate task_details (optional)
+    let parsedTaskDetails = [];
+    if (task_details) {
+      try {
+        parsedTaskDetails = JSON.parse(task_details);
+        if (!Array.isArray(parsedTaskDetails)) {
+          await t.rollback();
+          return res.status(400).json({ message: "task_details must be an array" });
+        }
+      } catch {
         await t.rollback();
-        return res.status(400).json({ message: "task_details must be a non-empty array" });
+        return res.status(400).json({ message: "Invalid JSON in task_details" });
       }
-    } catch {
-      await t.rollback();
-      return res.status(400).json({ message: "Invalid JSON in task_details" });
     }
 
     // Validate required fields
@@ -230,7 +232,7 @@ exports.assignTask = async (req, res) => {
     // Handle file upload
     const file_path = req.file ? path.join("uploads", req.file.filename) : null;
 
-    // Create Task inside transaction
+    // Create Task
     const task = await Task.create(
       {
         title,
@@ -254,19 +256,22 @@ exports.assignTask = async (req, res) => {
       { transaction: t }
     );
 
-    // Create Task Details
-    const taskDetailsToInsert = parsedTaskDetails.map((detail, index) => ({
-      task_id: task.id,
-      order: index + 1,
-      title: detail.title?.trim(),
-      description: detail.description || null,
-      note: detail.note || null,
-      end_date: detail.end_date,
-    }));
+    // Only insert details if provided and non-empty
+    let taskDetailsToInsert = [];
+    if (parsedTaskDetails.length > 0) {
+      taskDetailsToInsert = parsedTaskDetails.map((detail, index) => ({
+        task_id: task.id,
+        order: index + 1,
+        title: detail.title?.trim(),
+        description: detail.description || null,
+        note: detail.note || null,
+        end_date: detail.end_date || null,
+      }));
 
-    await TaskDetail.bulkCreate(taskDetailsToInsert, { transaction: t });
+      await TaskDetail.bulkCreate(taskDetailsToInsert, { transaction: t });
+    }
 
-    // Commit if all succeeded
+    // Commit transaction
     await t.commit();
 
     res.status(201).json({
@@ -274,13 +279,13 @@ exports.assignTask = async (req, res) => {
       task,
       task_details: taskDetailsToInsert,
     });
+
   } catch (error) {
-    //Rollback on failure
     await t.rollback();
-    console.error("❌ assignTask Error:", error);
+    console.error("assignTask Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
 
 exports.watomsViewTasks = async (req, res) => {
   try {
