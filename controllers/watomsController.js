@@ -1,6 +1,9 @@
-const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment } = require("../db/models");
+const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment, User, PeCandidate } = require("../db/models");
 const path = require("path");
+const { hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
+const validator = require("validator");
+const jwt = require('jsonwebtoken');
 
 exports.publishNews = async (req, res) => {
     try {
@@ -70,7 +73,6 @@ exports.getNewsList = async (req, res) => {
         });
     }
 }
-
 
 exports.updateNotification = async (req, res) => {
     try {
@@ -406,6 +408,129 @@ exports.getManagerComments = async (req, res) => {
         res.json({
             success: true,
             data: managerComments
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
+exports.createCandidateUser = async (req, res) => {
+    try {
+        const {
+            name,
+            id_number,
+            passport_number,
+            email,
+            organization_id,
+            category,
+            phone_number,
+            recommended_country,
+            self_test_date,
+            personal_test_date,
+            theory_test_date,
+        } = req.body;
+
+        // Normalize and validate email
+        const normalizedEmail = email?.toLowerCase().trim();
+        if (
+            !name ||
+            !id_number ||
+            !normalizedEmail ||
+            !organization_id ||
+            !category ||
+            !phone_number
+        ) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+
+
+        if (!validator.isEmail(normalizedEmail)) {
+            return res.status(400).json({ message: "Invalid email format" });
+        }
+
+        // Generate random password and candidate_id
+        const password = Math.floor(10000 + Math.random() * 90000).toString();
+        const hashedPassword = await hashPassword(password);
+        const candidate_id = Math.floor(1000 + Math.random() * 9000);
+
+        // Transaction for user + candidate creation
+        const result = await User.sequelize.transaction(async (transaction) => {
+            const lastUser = await User.findOne({
+                attributes: ["code"],
+                order: [["code", "DESC"]],
+                transaction,
+                lock: transaction.LOCK.UPDATE,
+            });
+
+            const newCode = lastUser?.code ? lastUser.code + 1 : 1000;
+
+            const user = await User.create(
+                {
+                    code: newCode,
+                    password: hashedPassword,
+                    role_id: 33,
+                },
+                { transaction }
+            );
+
+            const clean = (v) => (v === "" ? null : v);
+
+            const candidate_data = await PeCandidate.create(
+                {
+                    name,
+                    id_number,
+                    passport_number: clean(passport_number),
+                    email: normalizedEmail,
+                    organization_id,
+                    user_id: user.id,
+                    category,
+                    candidate_id,
+                    phone_number,
+                    recommended_country: clean(recommended_country),
+                    self_test_date: clean(self_test_date),
+                    personal_test_date: clean(personal_test_date),
+                    theory_test_date: clean(theory_test_date),
+                },
+                { transaction }
+            );
+
+            // ✅ return both so we can access them later
+            return { user, candidate_data };
+        });
+
+        // JWT setup
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET is not defined");
+        }
+
+        const token = jwt.sign({ id: result.user.id }, process.env.JWT_SECRET, {
+            expiresIn: "1h",
+        });
+
+        res.status(201).json({
+            message: "User created successfully",
+            code: result.user.code,
+            token,
+            candidate_data: result.candidate_data,
+            password, // return raw password (consider removing later for security)
+        });
+    } catch (error) {
+        console.error("❌ Signup Error:", error);
+        res.status(500).json({ message: error.message || "Server error" });
+    }
+};
+
+exports.getExaminerData = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        res.json({
+            success: true,
         });
     } catch (err) {
         console.error("Error fetching manager evaluation template:", err);

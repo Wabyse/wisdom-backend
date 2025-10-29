@@ -58,6 +58,7 @@ module.exports = (sequelize, DataTypes) => {
     User.hasMany(models.Task, { foreignKey: 'assignee_id', as: 'task_assignee' });
     User.hasMany(models.Task, { foreignKey: 'reviewer_id', as: 'task_reviewer' });
     User.hasMany(models.Task, { foreignKey: 'manager_id', as: 'task_manager' });
+    User.hasOne(models.PeCandidate, { foreignKey: 'user_id', as: 'candidate' });
   };
 
   return User;

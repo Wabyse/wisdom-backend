@@ -58,6 +58,7 @@ module.exports = (sequelize, DataTypes) => {
     Organization.belongsTo(models.Authority, { foreignKey: 'authority_id', as: 'authority' });
     Organization.hasMany(models.Task, { foreignKey: 'organization_id', as: 'tasks' });
     Organization.belongsToMany(models.Program, { through: 'program_organizations', foreignKey: 'organization_id', otherKey: 'program_id', as: 'programs' });
+    Organization.hasMany(models.PeCandidate, { foreignKey: 'organization_id', as: 'candidates' });
   };
 
   return Organization;
