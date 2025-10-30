@@ -419,6 +419,27 @@ exports.getManagerComments = async (req, res) => {
     }
 };
 
+exports.getCandidatesData = async (req, res) => {
+    try {
+
+        const candidates = await PeCandidate.findAll({
+            order: [['id', 'DESC']],
+        });
+
+        res.json({
+            success: true,
+            candidates
+        });
+    } catch (err) {
+        console.error("Error fetching manager evaluation template:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch manager evaluation template",
+            error: err.message
+        });
+    }
+};
+
 exports.createCandidateUser = async (req, res) => {
     try {
         const {
@@ -428,12 +449,18 @@ exports.createCandidateUser = async (req, res) => {
             email,
             organization_id,
             category,
+            candidate_id,
             phone_number,
             recommended_country,
             self_test_date,
             personal_test_date,
             theory_test_date,
+            self_test_time,
+            personal_test_time,
+            theory_test_time,
         } = req.body;
+
+        console.log(req.body)
 
         // Normalize and validate email
         const normalizedEmail = email?.toLowerCase().trim();
@@ -443,7 +470,8 @@ exports.createCandidateUser = async (req, res) => {
             !normalizedEmail ||
             !organization_id ||
             !category ||
-            !phone_number
+            !phone_number ||
+            !candidate_id
         ) {
             return res.status(400).json({ message: "Missing required fields" });
         }
@@ -456,7 +484,6 @@ exports.createCandidateUser = async (req, res) => {
         // Generate random password and candidate_id
         const password = Math.floor(10000 + Math.random() * 90000).toString();
         const hashedPassword = await hashPassword(password);
-        const candidate_id = Math.floor(1000 + Math.random() * 9000);
 
         // Transaction for user + candidate creation
         const result = await User.sequelize.transaction(async (transaction) => {
@@ -492,9 +519,17 @@ exports.createCandidateUser = async (req, res) => {
                     candidate_id,
                     phone_number,
                     recommended_country: clean(recommended_country),
-                    self_test_date: clean(self_test_date),
-                    personal_test_date: clean(personal_test_date),
-                    theory_test_date: clean(theory_test_date),
+                    self_test_date: self_test_date
+                        ? new Date(`${self_test_date}T${self_test_time || "00:00:00"}`)
+                        : null,
+
+                    personal_test_date: personal_test_date
+                        ? new Date(`${personal_test_date}T${personal_test_time || "00:00:00"}`)
+                        : null,
+
+                    theory_test_date: theory_test_date
+                        ? new Date(`${theory_test_date}T${theory_test_time || "00:00:00"}`)
+                        : null
                 },
                 { transaction }
             );
@@ -520,24 +555,117 @@ exports.createCandidateUser = async (req, res) => {
             password, // return raw password (consider removing later for security)
         });
     } catch (error) {
-        console.error("❌ Signup Error:", error);
+        console.error("Signup Error:", error);
         res.status(500).json({ message: error.message || "Server error" });
     }
 };
 
-exports.getExaminerData = async (req, res) => {
+exports.updateCandidateUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        res.json({
-            success: true,
+        const {
+            name,
+            id_number,
+            passport_number,
+            email,
+            organization_id,
+            category,
+            candidate_id,
+            phone_number,
+            recommended_country,
+            self_test_date,
+            personal_test_date,
+            theory_test_date,
+            self_test_time,
+            personal_test_time,
+            theory_test_time,
+        } = req.body;
+
+        // ✅ Check if candidate exists
+        const candidate = await PeCandidate.findByPk(id);
+        if (!candidate) {
+            return res.status(404).json({ message: "Candidate not found" });
+        }
+
+        // ✅ Normalize & validate email
+        const normalizedEmail = email?.toLowerCase().trim();
+        if (
+            !name ||
+            !id_number ||
+            !normalizedEmail ||
+            !organization_id ||
+            !category ||
+            !phone_number ||
+            !candidate_id
+        ) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        if (!validator.isEmail(normalizedEmail)) {
+            return res.status(400).json({ message: "Invalid email format" });
+        }
+
+        // ✅ Start safe transaction
+        const result = await PeCandidate.sequelize.transaction(async (transaction) => {
+            const clean = (v) => (v === "" ? null : v);
+
+            // ✅ Build update object
+            const updateData = {
+                name,
+                id_number,
+                passport_number: clean(passport_number),
+                email: normalizedEmail,
+                organization_id,
+                category,
+                phone_number,
+                recommended_country: clean(recommended_country),
+
+                // ✅ Combine date + time into proper ISO format
+                self_test_date:
+                    self_test_date && self_test_time
+                        ? new Date(`${self_test_date}T${self_test_time}`)
+                        : clean(self_test_date),
+
+                personal_test_date:
+                    personal_test_date && personal_test_time
+                        ? new Date(`${personal_test_date}T${personal_test_time}`)
+                        : clean(personal_test_date),
+
+                theory_test_date:
+                    theory_test_date && theory_test_time
+                        ? new Date(`${theory_test_date}T${theory_test_time}`)
+                        : clean(theory_test_date),
+            };
+
+            // ✅ Only update candidate_id if it’s actually different
+            if (candidate.candidate_id !== candidate_id) {
+                updateData.candidate_id = candidate_id;
+            }
+
+            const candidate_data = await candidate.update(updateData, { transaction });
+            return { candidate_data };
         });
-    } catch (err) {
-        console.error("Error fetching manager evaluation template:", err);
+
+        // ✅ Return 200 for updates
+        res.status(200).json({
+            message: "Candidate updated successfully",
+            candidate_data: result.candidate_data,
+        });
+    } catch (error) {
+        console.error("Update Candidate Error:", error);
+
+        // ✅ Handle duplicate constraint error cleanly
+        if (error.name === "SequelizeUniqueConstraintError") {
+            return res
+                .status(409)
+                .json({
+                    message: `Duplicate value for a unique field: ${error.errors[0]?.message}`,
+                });
+        }
+
         res.status(500).json({
-            success: false,
-            message: "Failed to fetch manager evaluation template",
-            error: err.message
+            message: error.message || "Server error while updating candidate",
         });
     }
 };

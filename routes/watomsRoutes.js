@@ -15,7 +15,8 @@ router.post("/organization/task-score", watomsController.submitOrgTaskAvg);
 router.get("/organization/task-score/:id", watomsController.getOrgTasksAvg);
 router.post("/manager/comment", watomsController.submitManagerComment);
 router.get("/manager/comment/:id", watomsController.getManagerComments);
+router.get("/pe/candidates", watomsController.getCandidatesData);
 router.post("/pe/candidate/create-user", watomsController.createCandidateUser);
-router.get("/pe/candidate/:id", watomsController.getExaminerData);
+router.patch("/pe/candidate/update-user/:id", watomsController.updateCandidateUser);
 
 module.exports = router;
