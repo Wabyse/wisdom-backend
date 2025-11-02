@@ -4,7 +4,10 @@ const watomsController = require("../controllers/watomsController");
 const uploadNews = require("../middleware/uploadNewsMiddleware");
 
 router.post("/news", uploadNews.single('image'), watomsController.publishNews);
+router.post("/news/:newsId/images", uploadNews.single('image'), watomsController.addNewsImage);
+router.post("/news/:newsId/test-images", watomsController.addTestImagesToNews);
 router.get("/news", watomsController.getNewsList);
+router.get("/news/:newsId/images", watomsController.getNewsImages);
 router.put("/news/:id/notification", watomsController.updateNotification);
 router.get("/managers/evaluation", watomsController.getManagerEvaluationTemplate);
 router.post("/managers/evaluation", watomsController.submitManagerEvaluation);

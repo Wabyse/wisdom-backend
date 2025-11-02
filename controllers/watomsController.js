@@ -1,5 +1,6 @@
 const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment, User, PeCandidate } = require("../db/models");
 const path = require("path");
+const fs = require("fs");
 const { hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
 const validator = require("validator");
@@ -51,10 +52,37 @@ exports.getNewsList = async (req, res) => {
             const newsData = news.toJSON();
             if (newsData.image_path) {
                 // Replace backslashes with forward slashes
-                const cleanPath = newsData.image_path.replace(/\\/g, '/');
-                newsData.image_url = `/uploads/${cleanPath}`;
+                let cleanPath = newsData.image_path.replace(/\\/g, '/');
+                
+                // Remove any "uploads/" prefix if present in the path
+                cleanPath = cleanPath.replace(/^\/?uploads\/news\//, 'news/');
+                
+                // News images are stored in news/ folder, so use /news route instead of /uploads
+                if (cleanPath.includes('news/')) {
+                    // Ensure it starts with /news/
+                    if (cleanPath.startsWith('/news/')) {
+                        newsData.image_url = cleanPath;
+                    } else if (cleanPath.startsWith('news/')) {
+                        newsData.image_url = `/${cleanPath}`;
+                    } else {
+                        // Extract organization ID and filename
+                        const match = cleanPath.match(/news\/(\d+\/[^\/]+)/);
+                        if (match) {
+                            newsData.image_url = `/news/${match[1]}`;
+                        } else {
+                            newsData.image_url = `/${cleanPath}`;
+                        }
+                    }
+                } else {
+                    // If it doesn't contain 'news/', assume it's a regular upload
+                    newsData.image_url = `/uploads/${cleanPath}`;
+                }
+                
+                // Log for debugging to ensure each news has unique image
+                console.log(`📰 News ID: ${newsData.id}, Image Path: ${newsData.image_path}, Image URL: ${newsData.image_url}`);
             } else {
                 newsData.image_url = null;
+                console.log(`⚠️ News ID: ${newsData.id} has no image_path`);
             }
             return newsData;
         });
@@ -73,6 +101,228 @@ exports.getNewsList = async (req, res) => {
         });
     }
 }
+
+exports.addNewsImage = async (req, res) => {
+    try {
+        const { newsId } = req.params;
+
+        // Get the news item to find organization_id
+        const news = await PublishedNews.findByPk(newsId);
+        if (!news) {
+            return res.status(404).json({
+                success: false,
+                message: "News not found"
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image file provided"
+            });
+        }
+
+        const organizationId = news.organization_id;
+        const relativePath = path.join("news", organizationId.toString(), req.file.filename);
+
+        // Note: We're adding the image to the directory, but not updating the news.image_path
+        // The image_path stays as the original, but getNewsImages will find all images in the directory
+
+        res.json({
+            success: true,
+            message: "Image added successfully",
+            image: {
+                filename: req.file.filename,
+                path: relativePath.replace(/\\/g, '/'),
+                url: `/news/${organizationId}/${req.file.filename}`
+            }
+        });
+    } catch (err) {
+        console.error("Error adding news image:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to add image",
+            error: err.message
+        });
+    }
+};
+
+exports.addTestImagesToNews = async (req, res) => {
+    try {
+        const { newsId, count = 3 } = req.body;
+
+        // Get the news item to find organization_id
+        const news = await PublishedNews.findByPk(newsId);
+        if (!news) {
+            return res.status(404).json({
+                success: false,
+                message: "News not found"
+            });
+        }
+
+        const organizationId = news.organization_id;
+        const newsDir = path.join(__dirname, '..', 'news', organizationId.toString());
+
+        // Ensure directory exists
+        if (!fs.existsSync(newsDir)) {
+            fs.mkdirSync(newsDir, { recursive: true });
+        }
+
+        // Get existing images in the directory
+        const existingFiles = fs.existsSync(newsDir) ? fs.readdirSync(newsDir) : [];
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        let existingImages = existingFiles.filter(file => 
+            imageExtensions.includes(path.extname(file).toLowerCase())
+        );
+
+        // If no images in this directory, try to find images from other organizations
+        if (existingImages.length === 0) {
+            const newsBaseDir = path.join(__dirname, '..', 'news');
+            if (fs.existsSync(newsBaseDir)) {
+                const orgDirs = fs.readdirSync(newsBaseDir, { withFileTypes: true })
+                    .filter(d => d.isDirectory())
+                    .map(d => d.name);
+
+                for (const orgId of orgDirs) {
+                    const otherOrgDir = path.join(newsBaseDir, orgId);
+                    const otherFiles = fs.readdirSync(otherOrgDir);
+                    const otherImages = otherFiles.filter(file => 
+                        imageExtensions.includes(path.extname(file).toLowerCase())
+                    );
+                    
+                    if (otherImages.length > 0) {
+                        // Copy first image from another organization to this one
+                        const sourcePath = path.join(otherOrgDir, otherImages[0]);
+                        const ext = path.extname(otherImages[0]);
+                        const newFilename = `imported-${Date.now()}${ext}`;
+                        const destPath = path.join(newsDir, newFilename);
+                        
+                        fs.copyFileSync(sourcePath, destPath);
+                        existingImages = [newFilename];
+                        console.log(`📸 Copied source image from org ${orgId} to org ${organizationId}`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (existingImages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No existing images found to copy. Please upload at least one image first."
+            });
+        }
+
+        // Copy existing images to create test images
+        const copiedImages = [];
+        for (let i = 0; i < count; i++) {
+            const sourceImage = existingImages[0]; // Use the first image as source
+            const sourcePath = path.join(newsDir, sourceImage);
+            const ext = path.extname(sourceImage);
+            const timestamp = Date.now() + i;
+            const newFilename = `test-${timestamp}${ext}`;
+            const destPath = path.join(newsDir, newFilename);
+
+            // Copy the file
+            fs.copyFileSync(sourcePath, destPath);
+            
+            copiedImages.push({
+                filename: newFilename,
+                path: `news/${organizationId}/${newFilename}`,
+                url: `/news/${organizationId}/${newFilename}`
+            });
+        }
+
+        console.log(`✅ Added ${copiedImages.length} test images to news ${newsId}`);
+
+        res.json({
+            success: true,
+            message: `Added ${copiedImages.length} test images successfully`,
+            images: copiedImages
+        });
+    } catch (err) {
+        console.error("Error adding test images:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to add test images",
+            error: err.message
+        });
+    }
+};
+
+exports.getNewsImages = async (req, res) => {
+    try {
+        const { newsId } = req.params;
+
+        // Get the news item to find organization_id
+        const news = await PublishedNews.findByPk(newsId);
+        if (!news) {
+            return res.status(404).json({
+                success: false,
+                message: "News not found"
+            });
+        }
+
+        const organizationId = news.organization_id;
+        const newsDir = path.join(__dirname, '..', 'news', organizationId.toString());
+
+        console.log(`🔍 Fetching images for news ${newsId}, organization ${organizationId}`);
+        console.log(`📁 Looking in directory: ${newsDir}`);
+
+        // Check if directory exists
+        if (!fs.existsSync(newsDir)) {
+            console.log(`❌ Directory does not exist: ${newsDir}`);
+            return res.json({
+                success: true,
+                images: []
+            });
+        }
+
+        // Read all files from the directory
+        const files = fs.readdirSync(newsDir);
+        console.log(`📄 Found ${files.length} files in directory:`, files);
+        
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        
+        // Filter only image files and create full URLs
+        const images = files
+            .filter(file => {
+                const ext = path.extname(file).toLowerCase();
+                const isImage = imageExtensions.includes(ext);
+                console.log(`   ${file} - ${ext} - ${isImage ? '✅ Image' : '❌ Not an image'}`);
+                return isImage;
+            })
+            .map(file => {
+                const cleanPath = `news/${organizationId}/${file}`.replace(/\\/g, '/');
+                const imageData = {
+                    filename: file,
+                    path: cleanPath,
+                    url: `/news/${organizationId}/${file}`,
+                    fullUrl: null // Will be constructed on frontend with proper base URL
+                };
+                console.log(`   📸 Image data for news ${newsId}:`, imageData);
+                return imageData;
+            })
+            .sort((a, b) => {
+                // Sort by filename (timestamp-based) descending
+                return b.filename.localeCompare(a.filename);
+            });
+
+        console.log(`✅ Returning ${images.length} images for news ${newsId}`);
+
+        res.json({
+            success: true,
+            images: images
+        });
+    } catch (err) {
+        console.error("❌ Error fetching news images:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch news images",
+            error: err.message
+        });
+    }
+};
 
 exports.updateNotification = async (req, res) => {
     try {
