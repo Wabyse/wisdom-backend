@@ -53,10 +53,10 @@ exports.getNewsList = async (req, res) => {
             if (newsData.image_path) {
                 // Replace backslashes with forward slashes
                 let cleanPath = newsData.image_path.replace(/\\/g, '/');
-                
+
                 // Remove any "uploads/" prefix if present in the path
                 cleanPath = cleanPath.replace(/^\/?uploads\/news\//, 'news/');
-                
+
                 // News images are stored in news/ folder, so use /news route instead of /uploads
                 if (cleanPath.includes('news/')) {
                     // Ensure it starts with /news/
@@ -77,7 +77,7 @@ exports.getNewsList = async (req, res) => {
                     // If it doesn't contain 'news/', assume it's a regular upload
                     newsData.image_url = `/uploads/${cleanPath}`;
                 }
-                
+
                 // Log for debugging to ensure each news has unique image
                 console.log(`📰 News ID: ${newsData.id}, Image Path: ${newsData.image_path}, Image URL: ${newsData.image_url}`);
             } else {
@@ -171,7 +171,7 @@ exports.addTestImagesToNews = async (req, res) => {
         // Get existing images in the directory
         const existingFiles = fs.existsSync(newsDir) ? fs.readdirSync(newsDir) : [];
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-        let existingImages = existingFiles.filter(file => 
+        let existingImages = existingFiles.filter(file =>
             imageExtensions.includes(path.extname(file).toLowerCase())
         );
 
@@ -186,17 +186,17 @@ exports.addTestImagesToNews = async (req, res) => {
                 for (const orgId of orgDirs) {
                     const otherOrgDir = path.join(newsBaseDir, orgId);
                     const otherFiles = fs.readdirSync(otherOrgDir);
-                    const otherImages = otherFiles.filter(file => 
+                    const otherImages = otherFiles.filter(file =>
                         imageExtensions.includes(path.extname(file).toLowerCase())
                     );
-                    
+
                     if (otherImages.length > 0) {
                         // Copy first image from another organization to this one
                         const sourcePath = path.join(otherOrgDir, otherImages[0]);
                         const ext = path.extname(otherImages[0]);
                         const newFilename = `imported-${Date.now()}${ext}`;
                         const destPath = path.join(newsDir, newFilename);
-                        
+
                         fs.copyFileSync(sourcePath, destPath);
                         existingImages = [newFilename];
                         console.log(`📸 Copied source image from org ${orgId} to org ${organizationId}`);
@@ -225,7 +225,7 @@ exports.addTestImagesToNews = async (req, res) => {
 
             // Copy the file
             fs.copyFileSync(sourcePath, destPath);
-            
+
             copiedImages.push({
                 filename: newFilename,
                 path: `news/${organizationId}/${newFilename}`,
@@ -281,9 +281,9 @@ exports.getNewsImages = async (req, res) => {
         // Read all files from the directory
         const files = fs.readdirSync(newsDir);
         console.log(`📄 Found ${files.length} files in directory:`, files);
-        
+
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-        
+
         // Filter only image files and create full URLs
         const images = files
             .filter(file => {
@@ -702,25 +702,26 @@ exports.createCandidateUser = async (req, res) => {
             candidate_id,
             phone_number,
             recommended_country,
-            self_test_date,
-            personal_test_date,
             theory_test_date,
-            self_test_time,
-            personal_test_time,
-            theory_test_time,
+            theory_start_time,
+            theory_end_time,
+            theory_test_score,
+            practical_test_date,
+            practical_start_time,
+            practical_end_time,
+            practical_test_score,
+            fc_test_date,
+            fc_start_time,
+            fc_end_time,
+            fc_test_score,
         } = req.body;
-
-        console.log(req.body)
 
         // Normalize and validate email
         const normalizedEmail = email?.toLowerCase().trim();
         if (
             !name ||
             !id_number ||
-            !normalizedEmail ||
             !organization_id ||
-            !category ||
-            !phone_number ||
             !candidate_id
         ) {
             return res.status(400).json({ message: "Missing required fields" });
@@ -762,24 +763,37 @@ exports.createCandidateUser = async (req, res) => {
                     name,
                     id_number,
                     passport_number: clean(passport_number),
-                    email: normalizedEmail,
+                    email: normalizedEmail || null,
                     organization_id,
                     user_id: user.id,
-                    category,
+                    category: category || null,
                     candidate_id,
-                    phone_number,
-                    recommended_country: clean(recommended_country),
-                    self_test_date: self_test_date
-                        ? new Date(`${self_test_date}T${self_test_time || "00:00:00"}`)
-                        : null,
+                    phone_number: phone_number || null,
+                    recommended_country: recommended_country || null,
 
-                    personal_test_date: personal_test_date
-                        ? new Date(`${personal_test_date}T${personal_test_time || "00:00:00"}`)
+                    practical_start_date: practical_test_date
+                        ? new Date(`${practical_test_date}T${practical_start_time || "00:00:00"}`)
                         : null,
+                    practical_end_date: practical_test_date
+                        ? new Date(`${practical_test_date}T${practical_end_time || "00:00:00"}`)
+                        : null,
+                    practical_test_score: practical_test_score || null,
 
-                    theory_test_date: theory_test_date
-                        ? new Date(`${theory_test_date}T${theory_test_time || "00:00:00"}`)
-                        : null
+                    theory_start_date: theory_test_date
+                        ? new Date(`${theory_test_date}T${theory_start_time || "00:00:00"}`)
+                        : null,
+                    theory_end_date: theory_test_date
+                        ? new Date(`${theory_test_date}T${theory_end_time || "00:00:00"}`)
+                        : null,
+                    theory_test_score: theory_test_score || null,
+
+                    fc_start_date: fc_test_date
+                        ? new Date(`${fc_test_date}T${fc_start_time || "00:00:00"}`)
+                        : null,
+                    fc_end_date: fc_test_date
+                        ? new Date(`${fc_test_date}T${fc_end_time || "00:00:00"}`)
+                        : null,
+                    fc_test_score: fc_test_score || null,
                 },
                 { transaction }
             );
@@ -824,12 +838,18 @@ exports.updateCandidateUser = async (req, res) => {
             candidate_id,
             phone_number,
             recommended_country,
-            self_test_date,
-            personal_test_date,
             theory_test_date,
-            self_test_time,
-            personal_test_time,
-            theory_test_time,
+            theory_start_time,
+            theory_end_time,
+            theory_test_score,
+            practical_test_date,
+            practical_start_time,
+            practical_end_time,
+            practical_test_score,
+            fc_test_date,
+            fc_start_time,
+            fc_end_time,
+            fc_test_score,
         } = req.body;
 
         // ✅ Check if candidate exists
@@ -843,10 +863,7 @@ exports.updateCandidateUser = async (req, res) => {
         if (
             !name ||
             !id_number ||
-            !normalizedEmail ||
             !organization_id ||
-            !category ||
-            !phone_number ||
             !candidate_id
         ) {
             return res.status(400).json({ message: "Missing required fields" });
@@ -865,27 +882,35 @@ exports.updateCandidateUser = async (req, res) => {
                 name,
                 id_number,
                 passport_number: clean(passport_number),
-                email: normalizedEmail,
+                email: normalizedEmail || null,
                 organization_id,
-                category,
-                phone_number,
-                recommended_country: clean(recommended_country),
+                category: category || null,
+                phone_number: phone_number || null,
+                recommended_country: recommended_country || null,
 
-                // ✅ Combine date + time into proper ISO format
-                self_test_date:
-                    self_test_date && self_test_time
-                        ? new Date(`${self_test_date}T${self_test_time}`)
-                        : clean(self_test_date),
+                practical_start_date: practical_test_date
+                    ? new Date(`${practical_test_date}T${practical_start_time || "00:00:00"}`)
+                    : null,
+                practical_end_date: practical_test_date
+                    ? new Date(`${practical_test_date}T${practical_end_time || "00:00:00"}`)
+                    : null,
+                practical_test_score: practical_test_score || null,
 
-                personal_test_date:
-                    personal_test_date && personal_test_time
-                        ? new Date(`${personal_test_date}T${personal_test_time}`)
-                        : clean(personal_test_date),
+                theory_start_date: theory_test_date
+                    ? new Date(`${theory_test_date}T${theory_start_time || "00:00:00"}`)
+                    : null,
+                theory_end_date: theory_test_date
+                    ? new Date(`${theory_test_date}T${theory_end_time || "00:00:00"}`)
+                    : null,
+                theory_test_score: theory_test_score || null,
 
-                theory_test_date:
-                    theory_test_date && theory_test_time
-                        ? new Date(`${theory_test_date}T${theory_test_time}`)
-                        : clean(theory_test_date),
+                fc_start_date: fc_test_date
+                    ? new Date(`${fc_test_date}T${fc_start_time || "00:00:00"}`)
+                    : null,
+                fc_end_date: fc_test_date
+                    ? new Date(`${fc_test_date}T${fc_end_time || "00:00:00"}`)
+                    : null,
+                fc_test_score: fc_test_score || null,
             };
 
             // ✅ Only update candidate_id if it’s actually different
