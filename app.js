@@ -14,8 +14,10 @@ const neqatyRoutes = require("./routes/neqatyRoutes");
 const dataRoutes = require("./routes/dataRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const watomsRoutes = require("./routes/watomsRoutes");
+const peRoutes = require("./routes/peRoutes");
 const errorHandler = require("./middleware/errorMiddleware");
 const { sequelize } = require("./db/models");
+const { models } = sequelize;
 
 const app = express();
 
@@ -45,6 +47,7 @@ app.use("/api/v1/neqaty", neqatyRoutes);
 app.use("/api/v1/data", dataRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/watoms", watomsRoutes);
+app.use("/api/v1/pe", peRoutes);
 
 app.use("*", (req, res) => {
   res.status(404).json({
@@ -57,10 +60,9 @@ app.use(errorHandler);
 
 const syncDatabase = async () => {
   try {
-    await sequelize.authenticate(); //checking the connection
+    await sequelize.authenticate();
     console.log("Database connected successfully.");
-    await sequelize.sync({ alter: false }); //syncronize the database with the model and alter any required alteration (true for dev, false for production)
-    console.log("Database synchronized successfully");
+    console.log("Skipping sequelize.sync(); using migrations only.");
   } catch (error) {
     console.error("Error synchronizing database:", error);
   }
