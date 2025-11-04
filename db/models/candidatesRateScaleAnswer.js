@@ -14,6 +14,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+    question_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'rating_scale_questions',
+        key: 'id'
+      }
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,

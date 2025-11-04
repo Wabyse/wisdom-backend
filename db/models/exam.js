@@ -13,10 +13,14 @@ module.exports = (sequelize, DataTypes) => {
         code: {
             type: DataTypes.STRING,
             allowNull: true
-        }
+        },
+        type: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
     }, {
         tableName: 'exams',
-        timestamps: true,
+        timestamps: false,
     });
 
     Exam.associate = (models) => {
@@ -27,6 +31,14 @@ module.exports = (sequelize, DataTypes) => {
         Exam.hasMany(models.CandidatesRateScaleExam, {
             foreignKey: 'exam_id',
             as: 'exams'
+        });
+        Exam.hasMany(models.McqQuestion, {
+            foreignKey: 'exam_id',
+            as: 'mcq_questions'
+        });
+        Exam.hasMany(models.CandidatesMcqExam, {
+            foreignKey: 'exam_id',
+            as: 'mcqExams'
         });
     };
 
