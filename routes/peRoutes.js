@@ -9,5 +9,6 @@ router.get("/candidate/:id", peController.fetchCandidate);
 router.post("/exam-answers", peController.submitExamAnswers);
 router.post("/mcq-exam-answers", peController.submitMCQExamAnswers);
 router.get("/exams/scores/:id", peController.fetchAllCandidateScores);
+router.get("/exams/mcq/scores/:id", peController.fetchAllCandidateMCQScores);
 
 module.exports = router;

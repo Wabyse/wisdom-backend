@@ -238,3 +238,68 @@ exports.fetchAllCandidateScores = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+exports.fetchAllCandidateMCQScores = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1️⃣ Fetch exams for this candidate (only MCQ type)
+        const exams = await db.CandidatesMcqExam.findAll({
+            include: [
+                {
+                    model: db.Exam,
+                    as: "exam",
+                    required: true,
+                    attributes: ["code"],
+                    where: { type: "MCQ" },
+                },
+            ],
+            where: { candidate_id: id },
+        });
+
+        // 2️⃣ Prepare final results
+        const results = {};
+
+        // 3️⃣ Process each exam
+        for (const exam of exams) {
+            // Get all answers for this exam
+            const answers = await db.CandidatesMcqAnswer.findAll({
+                where: { exam_id: exam.id },
+            });
+
+            let totalQuestions = answers.length;
+            let totalCorrect = 0;
+
+            // 4️⃣ Loop through each answer
+            for (const ans of answers) {
+                // Fetch the selected choice to see if it's correct
+                const choice = await db.McqChoice.findByPk(ans.choice_id, {
+                    attributes: ["status"],
+                });
+
+                if (choice && choice.status === true) {
+                    totalCorrect += 1;
+                }
+            }
+
+            // Avoid division by zero
+            const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+
+            // 5️⃣ Store result using exam code as key
+            results[exam.exam.code] = {
+                totalQuestions,
+                totalCorrect,
+                percentage: Number(score.toFixed(2)),
+            };
+        }
+
+        return res.status(200).json({
+            status: "success",
+            message: "Candidate MCQ exam scores calculated successfully",
+            results,
+        });
+    } catch (error) {
+        console.error("Error fetching candidate MCQ scores:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
