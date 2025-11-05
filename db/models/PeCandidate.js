@@ -117,6 +117,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'candidate_id',
       as: 'mcqExams'
     });
+    PeCandidate.hasMany(models.CandidatesForcedChoiceExam, {
+      foreignKey: 'candidate_id',
+      as: 'forcedChoiceExams'
+    });
   };
 
   return PeCandidate;
