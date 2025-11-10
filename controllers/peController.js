@@ -233,6 +233,48 @@ exports.submitForcedChoiceExamAnswers = async (req, res) => {
     }
 };
 
+exports.submitRateScaleCommentExamAnswers = async (req, res) => {
+    try {
+        const { candidate_id, exam_id, allAnswers } = req.body;
+
+        // Validate input
+        if (!candidate_id || !exam_id || !Array.isArray(allAnswers)) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'candidate_id, exam_id and allAnswers array are required'
+            });
+        }
+
+        // Step 1: Create a record in candidates_rate_scale_exams
+        const examRecord = await db.CandidatesRateScaleExam.create({
+            candidate_id,
+            exam_id
+        });
+
+        // Step 2: Create all answers in candidates_rate_scale_answers
+        const answersData = allAnswers.map((item) => ({
+            score: item.answer,
+            exam_id: examRecord.id,
+            question_id: item.question_id,
+            comment: item.comment
+        }));
+
+        await db.CandidatesRateScaleAnswer.bulkCreate(answersData);
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Exam answers submitted successfully',
+            examRecordId: examRecord.id,
+        });
+    } catch (error) {
+        console.error('Error submitting exam answers:', error);
+        return res.status(500).json({
+            status: 'fail',
+            message: 'Internal server error',
+        });
+    }
+};
+
 exports.fetchAllCandidateScores = async (req, res) => {
     try {
         const { id } = req.params;

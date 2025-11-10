@@ -21,5 +21,6 @@ router.get("/manager/comment/:id", watomsController.getManagerComments);
 router.get("/pe/candidates", watomsController.getCandidatesData);
 router.post("/pe/candidate/create-user", watomsController.createCandidateUser);
 router.patch("/pe/candidate/update-user/:id", watomsController.updateCandidateUser);
+router.patch("/trainee-registration/checked", watomsController.checkTrainee);
 
 module.exports = router;

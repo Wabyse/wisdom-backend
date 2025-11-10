@@ -10,6 +10,7 @@ router.get("/candidate/:id", peController.fetchCandidate);
 router.post("/exam-answers", peController.submitExamAnswers);
 router.post("/mcq-exam-answers", peController.submitMCQExamAnswers);
 router.post("/forced-choice-exam-answers", peController.submitForcedChoiceExamAnswers);
+router.post("/rate-scale-comment-exam-answers", peController.submitRateScaleCommentExamAnswers);
 router.get("/exams/scores/:id", peController.fetchAllCandidateScores);
 router.get("/exams/mcq/scores/:id", peController.fetchAllCandidateMCQScores);
 router.get("/total-scores", peController.fetchTotalScores);

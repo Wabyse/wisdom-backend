@@ -86,6 +86,18 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.FLOAT,
       allowNull: true,
     },
+    nationality: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    profession: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    profession_code: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,

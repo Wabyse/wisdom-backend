@@ -1,10 +1,11 @@
-const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment, User, PeCandidate } = require("../db/models");
+const { sequelize, PublishedNews, ManagerEvaluationTemplate, ManagerEvaluationCategory, ManagerEvaluation, TempOrgAvgTask, ManagerComment, User, PeCandidate, TraineeRegistrationData } = require("../db/models");
 const path = require("path");
 const fs = require("fs");
 const { hashPassword } = require("../utils/hashPassword");
 require("dotenv").config();
 const validator = require("validator");
 const jwt = require('jsonwebtoken');
+const { Op } = require("sequelize");
 
 exports.publishNews = async (req, res) => {
     try {
@@ -714,6 +715,9 @@ exports.createCandidateUser = async (req, res) => {
             fc_start_time,
             fc_end_time,
             fc_test_score,
+            nationality,
+            profession,
+            profession_code
         } = req.body;
 
         // Normalize and validate email
@@ -794,6 +798,9 @@ exports.createCandidateUser = async (req, res) => {
                         ? new Date(`${fc_test_date}T${fc_end_time || "00:00:00"}`)
                         : null,
                     fc_test_score: fc_test_score || null,
+                    nationality: nationality || null,
+                    profession: profession || null,
+                    profession_code: profession_code || null,
                 },
                 { transaction }
             );
@@ -850,6 +857,9 @@ exports.updateCandidateUser = async (req, res) => {
             fc_start_time,
             fc_end_time,
             fc_test_score,
+            nationality,
+            profession,
+            profession_code
         } = req.body;
 
         // ✅ Check if candidate exists
@@ -911,6 +921,9 @@ exports.updateCandidateUser = async (req, res) => {
                     ? new Date(`${fc_test_date}T${fc_end_time || "00:00:00"}`)
                     : null,
                 fc_test_score: fc_test_score || null,
+                nationality: nationality || null,
+                profession: profession || null,
+                profession_code: profession_code || null,
             };
 
             // ✅ Only update candidate_id if it’s actually different
@@ -941,6 +954,31 @@ exports.updateCandidateUser = async (req, res) => {
 
         res.status(500).json({
             message: error.message || "Server error while updating candidate",
+        });
+    }
+};
+
+exports.checkTrainee = async (req, res) => {
+    try {
+        const { selectedUsers } = req.body;
+
+        if (!Array.isArray(selectedUsers) || selectedUsers.length === 0) {
+            return res.status(400).json({ message: "selectedUsers must be a non-empty array" });
+        }
+
+        const [updatedCount] = await TraineeRegistrationData.update(
+            { is_new: false },
+            { where: { id: { [Op.in]: selectedUsers } } }
+        );
+
+        return res.status(200).json({
+            message: `${updatedCount} trainees updated successfully.`,
+            updatedCount,
+        });
+    } catch (error) {
+        console.error("Error updating trainees:", error);
+        res.status(500).json({
+            message: error.message || "Server error while updating users",
         });
     }
 };

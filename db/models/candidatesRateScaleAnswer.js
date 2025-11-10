@@ -22,6 +22,10 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    comment: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     createdAt: {
       allowNull: false,
       type: DataTypes.DATE,
