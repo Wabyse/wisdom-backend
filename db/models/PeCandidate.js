@@ -133,6 +133,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'candidate_id',
       as: 'forcedChoiceExams'
     });
+    PeCandidate.hasMany(models.CandidatesEvaluationExam, {
+      foreignKey: "candidate_id",
+      as: "evaluationExams",
+    });
   };
 
   return PeCandidate;

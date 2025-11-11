@@ -88,6 +88,25 @@ exports.fetchForcedChoiceExam = async (req, res) => {
     }
 }
 
+exports.fetchEvaluationExam = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const exam = await db.EvaluationQuestion.findAll({
+            where: { exam_id: id }
+        })
+
+        return res.status(200).json({
+            status: "success",
+            message: "exam got fetched successfully",
+            exam
+        });
+    } catch (error) {
+        console.error('Error fetching rating scale questions:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 exports.fetchCandidate = async (req, res) => {
     try {
         const { id } = req.params;
@@ -174,6 +193,48 @@ exports.submitMCQExamAnswers = async (req, res) => {
         }));
 
         await db.CandidatesMcqAnswer.bulkCreate(answersData);
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Exam answers submitted successfully',
+            examRecordId: examRecord.id,
+        });
+    } catch (error) {
+        console.error('Error submitting exam answers:', error);
+        return res.status(500).json({
+            status: 'fail',
+            message: 'Internal server error',
+        });
+    }
+};
+
+exports.submitEvaluationExamAnswers = async (req, res) => {
+    try {
+        const { candidate_id, exam_id, allAnswers } = req.body;
+
+        // Validate input
+        if (!candidate_id || !exam_id || !Array.isArray(allAnswers)) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'candidate_id, exam_id and allAnswers array are required'
+            });
+        }
+
+        // Step 1: Create a record in candidates_rate_scale_exams
+        const examRecord = await db.CandidatesEvaluationExam.create({
+            candidate_id,
+            exam_id
+        });
+
+        // Step 2: Create all answers in candidates_rate_scale_answers
+        const answersData = allAnswers.map((item) => ({
+            score: item.answer,
+            exam_id: examRecord.id,
+            question_id: item.question_id,
+            comment: item.comment
+        }));
+
+        await db.CandidatesEvaluationAnswer.bulkCreate(answersData);
 
         return res.status(201).json({
             status: 'success',

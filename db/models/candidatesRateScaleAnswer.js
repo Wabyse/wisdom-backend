@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: 'candidates_rate_scale_answers',
-    timestamps: false // ✅ only createdAt
+    timestamps: false,
   });
 
   CandidatesRateScaleAnswer.associate = (models) => {

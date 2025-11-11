@@ -40,6 +40,12 @@ module.exports = (sequelize, DataTypes) => {
 
     Form.associate = (models) => {
         Form.hasMany(models.Field, { foreignKey: 'form_id', as: 'fields' });
+        Form.belongsToMany(models.Program, {
+            through: 'program_forms',
+            foreignKey: 'form_id',
+            otherKey: 'program_id',
+            as: 'programs'
+        });
     };
 
     return Form;
