@@ -16,5 +16,6 @@ router.post("/rate-scale-comment-exam-answers", peController.submitRateScaleComm
 router.get("/exams/scores/:id", peController.fetchAllCandidateScores);
 router.get("/exams/mcq/scores/:id", peController.fetchAllCandidateMCQScores);
 router.get("/total-scores", peController.fetchTotalScores);
+router.get("/dashboard", peController.DashboardData);
 
 module.exports = router;

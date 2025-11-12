@@ -552,3 +552,20 @@ exports.fetchTotalScores = async (req, res) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+exports.DashboardData = async (req, res) => {
+    try {
+
+        // Fetch exams for this candidate
+        const candidates = await db.PeCandidate.findAll();
+
+        return res.status(200).json({
+            status: "success",
+            message: "number of candidates fetched successfully",
+            candidates
+        });
+    } catch (error) {
+        console.error("Error fetching candidate MCQ scores:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
