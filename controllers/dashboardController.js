@@ -1,7 +1,6 @@
 const db = require('../db/models');
 const { Op, literal } = require('sequelize');
 const { calculateFormScore } = require('../utils/formScore');
-const { roundNumber } = require('../utils/roundNumber');
 
 const excludedIds = [1, 2, 3, 6, 11, 12];
 const watomsIds = [3, 4, 5, 6, 7, 8, 9, 11];
@@ -1371,7 +1370,7 @@ exports.watomsFormsScore = async (req, res) => {
     try {
         // static watoms organizations ids
         const staticIds = [4, 5, 7, 8, 9];
-        const staticCurrIds = [1, 2, 3, 13, 14, 15, 16, 17, 18, 48, 49]
+        const staticCurrIds = [1, 3, 13, 14, 15, 16, 17, 18, 48, 49]
         const monthlyTotals = Array.from({ length: 12 }, () => ({
             sum: 0,
             count: 0,
@@ -1514,7 +1513,7 @@ exports.watomsFormsScore = async (req, res) => {
 
         // fetch curriculum's data related to the selected school's ids
         const curriculums = await db.Curriculum.findAll({
-            attributes: ["id"],
+            attributes: ["id", "code"],
             where: {
                 id: { [Op.notIn]: staticCurrIds }
             },
@@ -1523,7 +1522,7 @@ exports.watomsFormsScore = async (req, res) => {
 
         // fetch student's data related to the selected school's ids
         const students = await db.Student.findAll({
-            attributes: ['id', 'user_id', 'school_id'],
+            attributes: ['id', 'first_name', 'middle_name', 'last_name', 'user_id', 'school_id'],
             where: { school_id: staticIds },
             raw: true
         });
@@ -1605,7 +1604,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const allCurriculumReports = await Promise.all([
                 db.CurriculumReport.findAll({
-                    attributes: ['id', 'Assessor_id', 'createdAt'],
+                    attributes: ['id', 'Assessor_id', 'curriculum_id', 'createdAt'],
                     where: { organization_id: id },
                     order: [['createdAt', 'DESC']],
                     raw: true
@@ -1614,7 +1613,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const allIndividualReports = await Promise.all([
                 db.IndividualReport.findAll({
-                    attributes: ['id', 'Assessor_id', 'createdAt'],
+                    attributes: ['id', 'Assessor_id', 'Assessee_id', 'createdAt'],
                     where: { Assessee_id: relatedUsers },
                     order: [['createdAt', 'DESC']],
                     raw: true
@@ -1623,7 +1622,7 @@ exports.watomsFormsScore = async (req, res) => {
 
             const allEnvironmentReports = await Promise.all([
                 db.EnvironmentReports.findAll({
-                    attributes: ['id', 'user_id', 'createdAt'],
+                    attributes: ['id', 'user_id', 'createdAt', 'organization_id'],
                     where: { organization_id: id },
                     raw: true
                 })
@@ -1683,16 +1682,16 @@ exports.watomsFormsScore = async (req, res) => {
                 allDDScore, allPOScore, allQDScore, allWScore,
                 allTRScore, allCPScore
             ] = await Promise.all([
-                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TG, formTGIds, formsTG),
-                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TE, formTEIds, formsTE),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.IP, formIPIds, formsIP),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DD, formDDIds, formsDD),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.PO, formPOIds, formsPO),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.QD, formQDIds, formsQD),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.TR, formTRIds, formsTR),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.CP, formCPIds, formsCP)
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TG, formTGIds, formsTG, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.TE, formTEIds, formsTE, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.IP, formIPIds, formsIP, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DD, formDDIds, formsDD, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.PO, formPOIds, formsPO, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.QD, formQDIds, formsQD, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.TR, formTRIds, formsTR, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.CP, formCPIds, formsCP, employees, schoolStudents, curriculums, organizations)
             ]);
 
             const relatedSTA = studentsAttendance.filter(sta => studentIds.includes(sta.student_id));
@@ -1927,124 +1926,6 @@ exports.watomsFormsScore = async (req, res) => {
                 overall: overAllScore.totalScore,
                 months: monthlySums2
             }
-            // results.organizations[id] = {
-            //     id,
-            //     name: orgName,
-            //     no_of_trainees: studentsBySchool[id].length,
-            //     no_of_trainers: relatedTeachers.length,
-            //     overall: overAllScore.totalScore,
-            //     months: totalOrgMonths,
-            //     TQBM: {
-            //         totalTQBM: overAllScore.totalTQBM,
-            //         TG: {
-            //             avgScore: overAllScore.avgTG,
-            //             scores: allTGScore
-            //         },
-            //         TE: {
-            //             avgScore: overAllScore.avgTE,
-            //             scores: allTEScore
-            //         },
-            //         T: {
-            //             avgScore: overAllScore.avgT,
-            //             scores: allTScore
-            //         },
-            //     },
-            //     GOVBM: {
-            //         totalGOVBM: overAllScore.totalGOVBM,
-            //         IP: {
-            //             avgScore: overAllScore.avgIP,
-            //             scores: allIPScore
-            //         },
-            //         DD: {
-            //             avgScore: overAllScore.avgDD,
-            //             scores: allDDScore
-            //         },
-            //         PO: {
-            //             avgScore: overAllScore.avgPO,
-            //             scores: allPOScore
-            //         },
-            //         QD: {
-            //             avgScore: overAllScore.avgQD,
-            //             scores: allQDScore
-            //         },
-            //         W: {
-            //             avgScore: overAllScore.avgW,
-            //             scores: allWScore
-            //         },
-            //     },
-            //     ACBM: {
-            //         totalACBM: overAllScore.totalACBM,
-            //         TR: {
-            //             avgScore: overAllScore.avgTR,
-            //             scores: allTRScore
-            //         },
-            //         TG: {
-            //             avgScore: overAllScore.avgTG,
-            //             scores: allTGScore
-            //         },
-            //     },
-            //     GEEBM: {
-            //         totalGEEBM: overAllScore.totalGEEBM,
-            //         TQBM: {
-            //             totalTQBM: overAllScore.totalTQBM,
-            //             TG: {
-            //                 avgScore: overAllScore.avgTG,
-            //                 scores: allTGScore
-            //             },
-            //             TE: {
-            //                 avgScore: overAllScore.avgTE,
-            //                 scores: allTEScore
-            //             },
-            //             T: {
-            //                 avgScore: overAllScore.avgT,
-            //                 scores: allTScore
-            //             },
-            //         },
-            //         GOVBM: {
-            //             totalGOVBM: overAllScore.totalGOVBM,
-            //             IP: {
-            //                 avgScore: overAllScore.avgIP,
-            //                 scores: allIPScore
-            //             },
-            //             DD: {
-            //                 avgScore: overAllScore.avgDD,
-            //                 scores: allDDScore
-            //             },
-            //             PO: {
-            //                 avgScore: overAllScore.avgPO,
-            //                 scores: allPOScore
-            //             },
-            //             QD: {
-            //                 avgScore: overAllScore.avgQD,
-            //                 scores: allQDScore
-            //             },
-            //             W: {
-            //                 avgScore: overAllScore.avgW,
-            //                 scores: allWScore
-            //             },
-            //         },
-            //         ACBM: {
-            //             totalACBM: overAllScore.totalACBM,
-            //             TR: {
-            //                 avgScore: overAllScore.avgTR,
-            //                 scores: allTRScore
-            //             },
-            //             TG: {
-            //                 avgScore: overAllScore.avgTG,
-            //                 scores: allTGScore
-            //             },
-            //         },
-            //         TRA: allStudentsAttendance,
-            //         TV: {
-            //             avgScore: overAllScore.avgTV,
-            //             scores: teachersEvaluation
-            //         },
-            //         CP: {
-            //             avgScore: overAllScore.avgCP,
-            //             scores: allCPScore
-            //         },
-            //     }
-            // }
         }
 
         results.total.overall = totalScores / staticIds.length;
@@ -2829,15 +2710,15 @@ exports.wisdomFormsScore = async (req, res) => {
                 allWScore, allEDUScore, allDOScore, allHScore,
                 allACScore
             ] = await Promise.all([
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT),
-                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.C, formCIds, formsC),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.EX, formEXIds, formsEX),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.PD, formPDIds, formsPD),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.EDU, formEDUIds, formsEDU),
-                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DO, formDOIds, formsDO),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.H, formHIds, formsH),
-                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.AC, formACIds, formsAC)
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.T, formTIds, formsT, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allCurriculumReports, allCurriculumResults, questionMaps.C, formCIds, formsC, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.EX, formEXIds, formsEX, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.PD, formPDIds, formsPD, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.W, formWIds, formsW, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.EDU, formEDUIds, formsEDU, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allEnvironmentReports, allEnvironmentResults, questionMaps.DO, formDOIds, formsDO, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.H, formHIds, formsH, employees, schoolStudents, curriculums, organizations),
+                calculateFormScore(usersIds, allIndividualReports, allIndividualResults, questionMaps.AC, formACIds, formsAC, employees, schoolStudents, curriculums, organizations)
             ]);
 
             const relatedSTA = studentsAttendance.filter(sta => studentIds.includes(sta.student_id));

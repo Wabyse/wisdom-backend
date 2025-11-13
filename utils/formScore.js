@@ -1,4 +1,4 @@
-async function calculateFormScore(userIds, allReports, allResults, questionMap, formIds, forms) {
+async function calculateFormScore(userIds, allReports, allResults, questionMap, formIds, forms, employees, students, curriculums, organizations) {
   // related reports for users
   const reportRows = (allReports[0] ?? []).filter(r =>
     userIds.includes(r.Assessor_id ?? r.user_id)
@@ -69,8 +69,26 @@ async function calculateFormScore(userIds, allReports, allResults, questionMap, 
   for (const [formId, reports] of Object.entries(reportAvg)) {
     const form = formsById.get(Number(formId));
     for (const [reportId, data] of Object.entries(reports)) {
+      const reportDetails = allReports.flat().find(report => report.id === Number(reportId));
+      let ReportedData;
+      if (reportDetails.Assessee_id) {
+        const assesseeData = employees.find(emp => emp.user_id === reportDetails.Assessee_id) || students.find(std => std.user_id === reportDetails.Assessee_id);
+        ReportedData = `${assesseeData?.first_name} ${assesseeData?.middle_name} ${assesseeData?.last_name}`
+      } else if (reportDetails.curriculum_id) {
+        const curriculumData = curriculums.find(curr => curr.id === reportDetails.curriculum_id);
+        ReportedData = curriculumData?.code;
+      } else if (reportDetails.organization_id) {
+        const environment = organizations.find(org => org.id === reportDetails.organization_id);
+        ReportedData = environment?.name
+      } else {
+        ReportedData = "لا يوجد"
+      }
+      const idToMatch = reportDetails.user_id || reportDetails.Assessor_id;
+      const AssessorData = employees.find(emp => emp.user_id === idToMatch) || students.find(std => std.user_id === idToMatch);
       reportArray.push({
         formId: formId,
+        assessorName: `${AssessorData?.first_name} ${AssessorData?.middle_name} ${AssessorData?.last_name}`,
+        ReportedData,
         code: form ? form.code : null,
         name: form ? form.ar_name : null,
         reportId,
